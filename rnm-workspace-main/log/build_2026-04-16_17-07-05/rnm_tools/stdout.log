@@ -1,0 +1,45 @@
+running egg_info
+creating ../../../build/rnm_tools/rnm_tools.egg-info
+writing ../../../build/rnm_tools/rnm_tools.egg-info/PKG-INFO
+writing dependency_links to ../../../build/rnm_tools/rnm_tools.egg-info/dependency_links.txt
+writing entry points to ../../../build/rnm_tools/rnm_tools.egg-info/entry_points.txt
+writing requirements to ../../../build/rnm_tools/rnm_tools.egg-info/requires.txt
+writing top-level names to ../../../build/rnm_tools/rnm_tools.egg-info/top_level.txt
+writing manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+reading manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+writing manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /rnm-workspace/build/rnm_tools/build
+creating /rnm-workspace/build/rnm_tools/build/lib
+creating /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+copying rnm_tools/joint_command_publisher.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+copying rnm_tools/urdf_visualizer.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+copying rnm_tools/__init__.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+running install
+running install_lib
+creating /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/joint_command_publisher.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/urdf_visualizer.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/__init__.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/joint_command_publisher.py to joint_command_publisher.cpython-310.pyc
+byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/urdf_visualizer.py to urdf_visualizer.cpython-310.pyc
+byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /rnm-workspace/install/rnm_tools/share/ament_index
+creating /rnm-workspace/install/rnm_tools/share/ament_index/resource_index
+creating /rnm-workspace/install/rnm_tools/share/ament_index/resource_index/packages
+copying resource/rnm_tools -> /rnm-workspace/install/rnm_tools/share/ament_index/resource_index/packages
+copying package.xml -> /rnm-workspace/install/rnm_tools/share/rnm_tools
+creating /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+copying launch/rnm_panda_sim.launch.py -> /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+copying launch/visualizer.launch.py -> /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+creating /rnm-workspace/install/rnm_tools/share/rnm_tools/config
+creating /rnm-workspace/install/rnm_tools/share/rnm_tools/config/sim
+copying config/sim/single_sim_controllers.yaml -> /rnm-workspace/install/rnm_tools/share/rnm_tools/config/sim
+running install_egg_info
+Copying ../../../build/rnm_tools/rnm_tools.egg-info to /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools-0.0.0-py3.10.egg-info
+running install_scripts
+Installing joint_command_publisher script to /rnm-workspace/install/rnm_tools/lib/rnm_tools
+Installing urdf_visualizer script to /rnm-workspace/install/rnm_tools/lib/rnm_tools
+writing list of installed files to '/rnm-workspace/build/rnm_tools/install.log'

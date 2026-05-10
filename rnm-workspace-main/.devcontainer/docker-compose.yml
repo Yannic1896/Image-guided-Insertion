@@ -1,0 +1,22 @@
+services:
+  lab:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      # args:
+      # args for low memory machines
+      # COLCON_BUILD_MODE: ${COLCON_BUILD_MODE:-queued}
+      # COLCON_PARALLEL_WORKERS: ${COLCON_PARALLEL_WORKERS:-1}
+      # CMAKE_BUILD_PARALLEL_LEVEL: ${CMAKE_BUILD_PARALLEL_LEVEL:-1}
+      # MAKEFLAGS: ${MAKEFLAGS:-j1}
+      # ROS2_WS_CMAKE_BUILD_TYPE: ${ROS2_WS_CMAKE_BUILD_TYPE:-Release}
+    command: sleep infinity
+    init: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - ..:/rnm-workspace
+    environment:
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      ROS_LOCALHOST_ONLY: "${ROS_LOCALHOST_ONLY:-0}"
+    network_mode: "${DEVCONTAINER_NETWORK_MODE:-bridge}"

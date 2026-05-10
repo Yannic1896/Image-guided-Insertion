@@ -1,0 +1,44 @@
+{
+  "name": "rnm-lab-ros2-humble",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "lab",
+  "workspaceFolder": "/rnm-workspace",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "shutdownAction": "stopCompose",
+  // "forwardPorts": [6080, 8080],
+  // "portsAttributes": {
+  //   "6080": {
+  //     "label": "noVNC"
+  //   },
+  //   "8080": {
+  //     "label": "RNM Visualizer"
+  //   }
+  // },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python",
+        "twxs.cmake"
+      ],
+      "settings": {
+        // "remote.autoForwardPorts": false,
+        // "remote.restoreForwardedPorts": false,
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.watcherExclude": {
+          "**/build/**": true,
+          "**/install/**": true,
+          "**/log/**": true
+        }
+      }
+    }
+  }
+}

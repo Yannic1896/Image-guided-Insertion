@@ -1,0 +1,57 @@
+--- a/mujoco_ros_pkgs/mujoco_ros/src/main.cpp
++++ b/mujoco_ros_pkgs/mujoco_ros/src/main.cpp
+@@ -77,7 +77,7 @@
+ static bool should_exit = false;
+ void async_spin(const rclcpp::executors::MultiThreadedExecutor::SharedPtr &executor)
+ {
+-	while (!should_exit) {
++	while (rclcpp::ok() && !should_exit) {
+ 		executor->spin_some();
+ 		std::this_thread::sleep_for(Seconds(0.01));
+ 	}
+@@ -142,25 +142,18 @@
+ 	env->StartPhysicsLoop();
+ 	env->StartEventLoop();
+ 
++#if MJR_ROS_VERSION == ROS_2 && RENDER_BACKEND == GLFW_BACKEND
++	should_exit = false;
++	std::thread executor_thread(std::bind(&async_spin, std::ref(executor)));
++#endif
++
+ #if RENDER_BACKEND == GLFW_BACKEND
+ 	if (!env->settings_.headless) {
+ 		MJR_INFO("Launching viewer");
+ 		auto viewer = std::make_unique<mujoco_ros::Viewer>(
+ 		    std::unique_ptr<mujoco_ros::PlatformUIAdapter>(env->gui_adapter_), env.get(), /* is_passive = */ false);
+-#if MJR_ROS_VERSION == ROS_1
+-		viewer->RenderLoop();
+-#else // MJR_ROS_VERSION == ROS_2
+-      // TODO: This is a workaround for running a blocking viewer and a blocking executor in ROS 2.
+-      // Running the render loop in a separate thread does not work. The otherway around does, but
+-      // I'm not sure this is ideal.
+-		std::thread executor_thread = std::thread(std::bind(&async_spin, std::ref(executor)));
+ 		viewer->RenderLoop();
+ 		MJR_INFO("Viewer terminated");
+-		MJR_DEBUG("Joining executor thread");
+-		should_exit = true;
+-		executor_thread.join();
+-		MJR_DEBUG("Joined executor thread");
+-#endif
+ 	}
+ #else
+ 	MJR_ERROR_COND(!env->settings_.headless, "GLFW backend not available. Cannot launch viewer");
+@@ -173,6 +166,14 @@
+ 
+ 	env->WaitForPhysicsJoin();
+ 	env->WaitForEventsJoin();
++
++#if MJR_ROS_VERSION == ROS_2 && RENDER_BACKEND == GLFW_BACKEND
++	MJR_DEBUG("Joining executor thread");
++	should_exit = true;
++	executor_thread.join();
++	MJR_DEBUG("Joined executor thread");
++#endif
++
+ 	env.reset();
+ 
+ 	MJR_INFO("MuJoCo ROS Simulation Server node is terminating");

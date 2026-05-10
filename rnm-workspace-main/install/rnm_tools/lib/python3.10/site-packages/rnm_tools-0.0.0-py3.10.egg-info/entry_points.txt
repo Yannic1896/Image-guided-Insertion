@@ -1,0 +1,4 @@
+[console_scripts]
+joint_command_publisher = rnm_tools.joint_command_publisher:main
+urdf_visualizer = rnm_tools.urdf_visualizer:main
+

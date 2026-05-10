@@ -1,0 +1,47 @@
+[1.970s] Invoking command in '/rnm-workspace/ros2_ws/src/rnm_tools': PYTHONPATH=/rnm-workspace/build/rnm_tools/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/rnm-workspace/install/rnm_tools/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/rnm_tools build --build-base /rnm-workspace/build/rnm_tools/build install --record /rnm-workspace/build/rnm_tools/install.log --single-version-externally-managed install_data
+[2.622s] running egg_info
+[2.625s] creating ../../../build/rnm_tools/rnm_tools.egg-info
+[2.625s] writing ../../../build/rnm_tools/rnm_tools.egg-info/PKG-INFO
+[2.626s] writing dependency_links to ../../../build/rnm_tools/rnm_tools.egg-info/dependency_links.txt
+[2.626s] writing entry points to ../../../build/rnm_tools/rnm_tools.egg-info/entry_points.txt
+[2.627s] writing requirements to ../../../build/rnm_tools/rnm_tools.egg-info/requires.txt
+[2.627s] writing top-level names to ../../../build/rnm_tools/rnm_tools.egg-info/top_level.txt
+[2.632s] writing manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+[2.637s] reading manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+[2.640s] writing manifest file '../../../build/rnm_tools/rnm_tools.egg-info/SOURCES.txt'
+[2.640s] running build
+[2.641s] running build_py
+[2.641s] creating /rnm-workspace/build/rnm_tools/build
+[2.641s] creating /rnm-workspace/build/rnm_tools/build/lib
+[2.641s] creating /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+[2.641s] copying rnm_tools/joint_command_publisher.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+[2.642s] copying rnm_tools/urdf_visualizer.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+[2.642s] copying rnm_tools/__init__.py -> /rnm-workspace/build/rnm_tools/build/lib/rnm_tools
+[2.642s] running install
+[2.643s] running install_lib
+[2.646s] creating /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+[2.647s] copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/joint_command_publisher.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+[2.647s] copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/urdf_visualizer.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+[2.647s] copying /rnm-workspace/build/rnm_tools/build/lib/rnm_tools/__init__.py -> /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools
+[2.648s] byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/joint_command_publisher.py to joint_command_publisher.cpython-310.pyc
+[2.651s] byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/urdf_visualizer.py to urdf_visualizer.cpython-310.pyc
+[2.655s] byte-compiling /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools/__init__.py to __init__.cpython-310.pyc
+[2.656s] running install_data
+[2.657s] creating /rnm-workspace/install/rnm_tools/share/ament_index
+[2.657s] creating /rnm-workspace/install/rnm_tools/share/ament_index/resource_index
+[2.658s] creating /rnm-workspace/install/rnm_tools/share/ament_index/resource_index/packages
+[2.658s] copying resource/rnm_tools -> /rnm-workspace/install/rnm_tools/share/ament_index/resource_index/packages
+[2.659s] copying package.xml -> /rnm-workspace/install/rnm_tools/share/rnm_tools
+[2.659s] creating /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+[2.659s] copying launch/rnm_panda_sim.launch.py -> /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+[2.660s] copying launch/visualizer.launch.py -> /rnm-workspace/install/rnm_tools/share/rnm_tools/launch
+[2.660s] creating /rnm-workspace/install/rnm_tools/share/rnm_tools/config
+[2.660s] creating /rnm-workspace/install/rnm_tools/share/rnm_tools/config/sim
+[2.660s] copying config/sim/single_sim_controllers.yaml -> /rnm-workspace/install/rnm_tools/share/rnm_tools/config/sim
+[2.660s] running install_egg_info
+[2.669s] Copying ../../../build/rnm_tools/rnm_tools.egg-info to /rnm-workspace/install/rnm_tools/lib/python3.10/site-packages/rnm_tools-0.0.0-py3.10.egg-info
+[2.670s] running install_scripts
+[2.733s] Installing joint_command_publisher script to /rnm-workspace/install/rnm_tools/lib/rnm_tools
+[2.734s] Installing urdf_visualizer script to /rnm-workspace/install/rnm_tools/lib/rnm_tools
+[2.735s] writing list of installed files to '/rnm-workspace/build/rnm_tools/install.log'
+[2.843s] Invoked command in '/rnm-workspace/ros2_ws/src/rnm_tools' returned '0': PYTHONPATH=/rnm-workspace/build/rnm_tools/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/rnm-workspace/install/rnm_tools/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/rnm_tools build --build-base /rnm-workspace/build/rnm_tools/build install --record /rnm-workspace/build/rnm_tools/install.log --single-version-externally-managed install_data

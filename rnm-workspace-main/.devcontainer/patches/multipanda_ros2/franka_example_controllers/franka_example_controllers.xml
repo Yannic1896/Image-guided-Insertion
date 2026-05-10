@@ -1,0 +1,14 @@
+<library path="franka_example_controllers">
+    <class name="franka_example_controllers/MoveToStartExampleController"
+           type="franka_example_controllers::MoveToStartExampleController" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The move to start example controller moves the robot into default pose.
+        </description>
+    </class>
+    <class name="franka_example_controllers/JointPositionExampleController"
+           type="franka_example_controllers::JointPositionExampleController" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            Position controller.
+        </description>
+    </class>
+</library>
