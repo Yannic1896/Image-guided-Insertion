@@ -1,0 +1,19 @@
+running develop
+running egg_info
+writing rnm_sample.egg-info/PKG-INFO
+writing dependency_links to rnm_sample.egg-info/dependency_links.txt
+writing entry points to rnm_sample.egg-info/entry_points.txt
+writing requirements to rnm_sample.egg-info/requires.txt
+writing top-level names to rnm_sample.egg-info/top_level.txt
+reading manifest file 'rnm_sample.egg-info/SOURCES.txt'
+writing manifest file 'rnm_sample.egg-info/SOURCES.txt'
+running build_ext
+Creating /ros2_ws/install/rnm_sample/lib/python3.10/site-packages/rnm-sample.egg-link (link to .)
+Installing listener script to /ros2_ws/install/rnm_sample/lib/rnm_sample
+Installing talker script to /ros2_ws/install/rnm_sample/lib/rnm_sample
+
+Installed /ros2_ws/build/rnm_sample
+running symlink_data
+symbolically linking /ros2_ws/build/rnm_sample/resource/rnm_sample -> /ros2_ws/install/rnm_sample/share/ament_index/resource_index/packages
+symbolically linking /ros2_ws/build/rnm_sample/package.xml -> /ros2_ws/install/rnm_sample/share/rnm_sample
+symbolically linking /ros2_ws/build/rnm_sample/launch/rnm_sample.launch.py -> /ros2_ws/install/rnm_sample/share/rnm_sample/launch

@@ -1,0 +1,56 @@
+[0.414s] Invoking command in '/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/ros2_ws/src/rnm_sample': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/prefix_override:/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages: /usr/bin/python3 setup.py egg_info --egg-base ../../../build/rnm_sample build --build-base /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build install --record /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/install.log --single-version-externally-managed
+[0.518s] running egg_info
+[0.518s] creating ../../../build/rnm_sample/rnm_sample.egg-info
+[0.523s] writing ../../../build/rnm_sample/rnm_sample.egg-info/PKG-INFO
+[0.524s] writing dependency_links to ../../../build/rnm_sample/rnm_sample.egg-info/dependency_links.txt
+[0.524s] writing entry points to ../../../build/rnm_sample/rnm_sample.egg-info/entry_points.txt
+[0.524s] writing requirements to ../../../build/rnm_sample/rnm_sample.egg-info/requires.txt
+[0.524s] writing top-level names to ../../../build/rnm_sample/rnm_sample.egg-info/top_level.txt
+[0.524s] writing manifest file '../../../build/rnm_sample/rnm_sample.egg-info/SOURCES.txt'
+[0.536s] reading manifest file '../../../build/rnm_sample/rnm_sample.egg-info/SOURCES.txt'
+[0.536s] writing manifest file '../../../build/rnm_sample/rnm_sample.egg-info/SOURCES.txt'
+[0.536s] running build
+[0.536s] running build_py
+[0.536s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build
+[0.537s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib
+[0.537s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample
+[0.537s] copying rnm_sample/listener.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample
+[0.537s] copying rnm_sample/talker.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample
+[0.537s] copying rnm_sample/__init__.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample
+[0.537s] running install
+[0.538s] /usr/lib/python3/dist-packages/setuptools/_distutils/cmd.py:66: SetuptoolsDeprecationWarning: setup.py install is deprecated.
+[0.538s] !!
+[0.538s] 
+[0.538s]         ********************************************************************************
+[0.538s]         Please avoid running ``setup.py`` directly.
+[0.538s]         Instead, use pypa/build, pypa/installer or other
+[0.538s]         standards-based tools.
+[0.538s] 
+[0.538s]         See https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html for details.
+[0.538s]         ********************************************************************************
+[0.538s] 
+[0.538s] !!
+[0.538s]   self.initialize_options()
+[0.542s] running install_lib
+[0.548s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample
+[0.548s] copying /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample/listener.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample
+[0.548s] copying /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample/talker.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample
+[0.548s] copying /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build/lib/rnm_sample/__init__.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample
+[0.548s] byte-compiling /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample/listener.py to listener.cpython-312.pyc
+[0.549s] byte-compiling /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample/talker.py to talker.cpython-312.pyc
+[0.549s] byte-compiling /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample/__init__.py to __init__.cpython-312.pyc
+[0.549s] running install_data
+[0.554s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/ament_index
+[0.555s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/ament_index/resource_index
+[0.555s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/ament_index/resource_index/packages
+[0.555s] copying resource/rnm_sample -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/ament_index/resource_index/packages
+[0.555s] copying package.xml -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/rnm_sample
+[0.555s] creating /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/rnm_sample/launch
+[0.555s] copying launch/rnm_sample.launch.py -> /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/share/rnm_sample/launch
+[0.555s] running install_egg_info
+[0.561s] Copying ../../../build/rnm_sample/rnm_sample.egg-info to /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages/rnm_sample-0.0.0-py3.12.egg-info
+[0.561s] running install_scripts
+[0.608s] Installing listener script to /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/rnm_sample
+[0.608s] Installing talker script to /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/rnm_sample
+[0.608s] writing list of installed files to '/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/install.log'
+[0.635s] Invoked command in '/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/ros2_ws/src/rnm_sample' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/prefix_override:/home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/install/rnm_sample/lib/python3.12/site-packages: /usr/bin/python3 setup.py egg_info --egg-base ../../../build/rnm_sample build --build-base /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/build install --record /home/yannic1896/Desktop/Studium/Master/RNM/RNM/rnm-workspace-main/build/rnm_sample/install.log --single-version-externally-managed

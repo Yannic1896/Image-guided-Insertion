@@ -4,3 +4,6 @@ source;share/rnm_tools/hook/pythonpath.sh
 source;share/rnm_tools/hook/ament_prefix_path.ps1
 source;share/rnm_tools/hook/ament_prefix_path.dsv
 source;share/rnm_tools/hook/ament_prefix_path.sh
+source;../../build/rnm_tools/share/rnm_tools/hook/pythonpath_develop.ps1
+source;../../build/rnm_tools/share/rnm_tools/hook/pythonpath_develop.dsv
+source;../../build/rnm_tools/share/rnm_tools/hook/pythonpath_develop.sh

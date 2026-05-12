@@ -1,0 +1,21 @@
+running develop
+running egg_info
+writing rnm_tools.egg-info/PKG-INFO
+writing dependency_links to rnm_tools.egg-info/dependency_links.txt
+writing entry points to rnm_tools.egg-info/entry_points.txt
+writing requirements to rnm_tools.egg-info/requires.txt
+writing top-level names to rnm_tools.egg-info/top_level.txt
+reading manifest file 'rnm_tools.egg-info/SOURCES.txt'
+writing manifest file 'rnm_tools.egg-info/SOURCES.txt'
+running build_ext
+Creating /ros2_ws/install/rnm_tools/lib/python3.10/site-packages/rnm-tools.egg-link (link to .)
+Installing joint_command_publisher script to /ros2_ws/install/rnm_tools/lib/rnm_tools
+Installing urdf_visualizer script to /ros2_ws/install/rnm_tools/lib/rnm_tools
+
+Installed /ros2_ws/build/rnm_tools
+running symlink_data
+symbolically linking /ros2_ws/build/rnm_tools/resource/rnm_tools -> /ros2_ws/install/rnm_tools/share/ament_index/resource_index/packages
+symbolically linking /ros2_ws/build/rnm_tools/package.xml -> /ros2_ws/install/rnm_tools/share/rnm_tools
+symbolically linking /ros2_ws/build/rnm_tools/launch/rnm_panda_sim.launch.py -> /ros2_ws/install/rnm_tools/share/rnm_tools/launch
+symbolically linking /ros2_ws/build/rnm_tools/launch/visualizer.launch.py -> /ros2_ws/install/rnm_tools/share/rnm_tools/launch
+symbolically linking /ros2_ws/build/rnm_tools/config/sim/single_sim_controllers.yaml -> /ros2_ws/install/rnm_tools/share/rnm_tools/config/sim

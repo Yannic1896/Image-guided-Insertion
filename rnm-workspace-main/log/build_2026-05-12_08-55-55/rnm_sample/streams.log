@@ -1,0 +1,21 @@
+[0.610s] Invoking command in '/ros2_ws/build/rnm_sample': PYTHONPATH=/ros2_ws/build/rnm_sample/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/ros2_ws/install/rnm_sample/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /ros2_ws/build/rnm_sample/build --no-deps symlink_data --force
+[0.759s] running develop
+[0.795s] running egg_info
+[0.796s] writing rnm_sample.egg-info/PKG-INFO
+[0.796s] writing dependency_links to rnm_sample.egg-info/dependency_links.txt
+[0.796s] writing entry points to rnm_sample.egg-info/entry_points.txt
+[0.796s] writing requirements to rnm_sample.egg-info/requires.txt
+[0.796s] writing top-level names to rnm_sample.egg-info/top_level.txt
+[0.797s] reading manifest file 'rnm_sample.egg-info/SOURCES.txt'
+[0.797s] writing manifest file 'rnm_sample.egg-info/SOURCES.txt'
+[0.798s] running build_ext
+[0.798s] Creating /ros2_ws/install/rnm_sample/lib/python3.10/site-packages/rnm-sample.egg-link (link to .)
+[0.799s] Installing listener script to /ros2_ws/install/rnm_sample/lib/rnm_sample
+[0.799s] Installing talker script to /ros2_ws/install/rnm_sample/lib/rnm_sample
+[0.799s] 
+[0.799s] Installed /ros2_ws/build/rnm_sample
+[0.799s] running symlink_data
+[0.799s] symbolically linking /ros2_ws/build/rnm_sample/resource/rnm_sample -> /ros2_ws/install/rnm_sample/share/ament_index/resource_index/packages
+[0.800s] symbolically linking /ros2_ws/build/rnm_sample/package.xml -> /ros2_ws/install/rnm_sample/share/rnm_sample
+[0.800s] symbolically linking /ros2_ws/build/rnm_sample/launch/rnm_sample.launch.py -> /ros2_ws/install/rnm_sample/share/rnm_sample/launch
+[0.825s] Invoked command in '/ros2_ws/build/rnm_sample' returned '0': PYTHONPATH=/ros2_ws/build/rnm_sample/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/ros2_ws/install/rnm_sample/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /ros2_ws/build/rnm_sample/build --no-deps symlink_data --force

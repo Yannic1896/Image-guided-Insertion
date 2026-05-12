@@ -1,0 +1,24 @@
+services:
+  ros2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ROS_DISTRO: humble
+        USER_UID: "${HOST_UID:-1000}"
+        USER_GID: "${HOST_GID:-1000}"
+    image: rnm-ros2-dev:humble
+    container_name: rnm-ros2
+    command: bash
+    init: true
+    tty: true
+    stdin_open: true
+    # Mount the whole workspace so colcon build output is persistent
+    volumes:
+      - ..:/ros2_ws
+    working_dir: /ros2_ws
+    environment:
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      ROS_LOCALHOST_ONLY: "${ROS_LOCALHOST_ONLY:-0}"
+      DISPLAY: "${DISPLAY:-}"
+    network_mode: host
