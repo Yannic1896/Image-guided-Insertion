@@ -1,1 +1,0 @@
-/ros2_ws/ros2_ws/src/rnm_sample/launch/rnm_sample.launch.py

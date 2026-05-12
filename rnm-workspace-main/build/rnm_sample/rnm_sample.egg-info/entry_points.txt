@@ -1,4 +1,0 @@
-[console_scripts]
-listener = rnm_sample.listener:main
-talker = rnm_sample.talker:main
-

@@ -1,1 +1,0 @@
-/ros2_ws/build/rnm_tools/launch/visualizer.launch.py

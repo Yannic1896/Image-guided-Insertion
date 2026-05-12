@@ -1,2 +1,20 @@
+# Secrets / local env overrides
 .env
 .devcontainer/.env
+
+# colcon build artifacts
+build/
+install/
+log/
+
+# Python byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# Editor / OS artifacts
+.DS_Store
+*.swp
+*.swo
+
