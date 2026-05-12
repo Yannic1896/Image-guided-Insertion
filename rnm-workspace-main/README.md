@@ -1,53 +1,144 @@
-# RNM Lab Devcontainer
+# RNM ROS 2 Workspace
 
-This repository is a VS Code devcontainer wrapper for lab sessions that need:
+ROS 2 Humble workspace for the RNM lab, containing:
 
-- ROS 2 Humble on Ubuntu 22.04
-- `multipanda_ros2` already built into the image under `/opt/ros2_ws`
-- MuJoCo 3.2.0, Eigen 3.3.9, `libfranka` 0.9.2, and DQ Robotics preinstalled in the image
+- **`rnm_tools`** – utilities for the Franka Panda simulation (joint command publisher, URDF visualizer, launch files)
+- **`rnm_sample`** – minimal publisher/subscriber template to use as a starting point for new packages
+- **`docker/`** – lightweight Docker setup with ROS 2 Humble + colcon for building and running packages without installing ROS locally
 
-The container layout mirrors the upstream `multipanda_ros2` setup documented in its `humble` branch: ROS 2 Humble, MuJoCo, `libfranka`, and `rosdep`, while keeping user code in a separate bind-mounted ROS workspace.
+---
 
-## Getting started
+## Quickstart with Docker
 
-1. Open the folder in VS Code and choose `Dev Containers: Reopen in Container`.
-2. Put your own packages under `ros2_ws/src`.
-3. Use `/opt/ros2_ws` as the baked upstream workspace when you need to inspect the bundled `multipanda_ros2` stack.
+This is the recommended way to build and run packages if ROS 2 is not installed on your host.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/) installed and running
+- [Docker Compose](https://docs.docker.com/compose/install/) v2 (`docker compose` command)
+
+### 1 — Build the image (once)
+
+```bash
+cd rnm-workspace-main
+docker compose -f docker/docker-compose.yml build
+```
+
+This pulls `ros:humble-ros-base` and installs colcon, rclpy, std_msgs, and other common ROS 2 packages. Subsequent starts skip this step.
+
+### 2 — Open a shell inside the container
+
+```bash
+docker compose -f docker/docker-compose.yml run --rm ros2
+```
+
+The entire `rnm-workspace-main/` folder is mounted at `/ros2_ws` inside the container. Any files you edit on the host are immediately visible inside and vice versa.
+
+### 3 — Build all packages with colcon
+
+Inside the container shell:
+
+```bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+`--symlink-install` means Python source files are linked rather than copied, so you do not need to rebuild after editing `.py` files.
+
+### 4 — Run nodes
+
+```bash
+# Run the sample talker
+ros2 run rnm_sample talker
+
+# Run the sample listener (in a second shell — see tip below)
+ros2 run rnm_sample listener
+```
+
+### 5 — Launch files
+
+```bash
+# Launch talker + listener together
+ros2 launch rnm_sample rnm_sample.launch.py
+
+# Franka simulation (requires full devcontainer with multipanda_ros2)
+ros2 launch rnm_tools rnm_panda_sim.launch.py
+```
+
+### Opening a second terminal in the running container
+
+```bash
+# On your host, while the container is running:
+docker compose -f docker/docker-compose.yml exec ros2 bash
+```
+
+The entrypoint automatically sources `/opt/ros/humble/setup.bash` and, if present, `install/setup.bash`.
+
+---
+
+## Creating a new package
+
+Use `rnm_sample` as a template:
+
+```bash
+# Copy the template
+cp -r ros2_ws/src/rnm_sample ros2_ws/src/my_package
+
+# Rename occurrences of rnm_sample → my_package
+# (package.xml, setup.py, setup.cfg, resource file, __init__.py)
+
+# Build and source
+colcon build --symlink-install --packages-select my_package
+source install/setup.bash
+```
+
+---
+
+## Full devcontainer (VS Code)
+
+A heavier devcontainer with `multipanda_ros2`, MuJoCo, `libfranka`, and noVNC is available under `.devcontainer/`. Open the folder in VS Code and choose **Dev Containers: Reopen in Container**. See `.devcontainer/.env.example` for network and display options.
 
 ### Example Franka Simulation
 
-Launch the simulation with the integrated RNM visualizer:
 ```bash
 ros2 launch rnm_tools rnm_panda_sim.launch.py
 ```
 
-Then open the visualization in your browser at `http://localhost:8080`.
+Open the visualizer at `http://localhost:8080`.
 
-To send a position command to the controller, for example:
+Send a joint position command:
+
 ```bash
-ros2 topic pub --once /joint_position_example_controller/joint_command std_msgs/msg/Float64MultiArray "{data: [0.05, -0.78, 0.0, -2.40, 0.0, 1.57, 0.79]}"
+ros2 topic pub --once /joint_position_example_controller/joint_command \
+  std_msgs/msg/Float64MultiArray \
+  "{data: [0.05, -0.78, 0.0, -2.40, 0.0, 1.57, 0.79]}"
 ```
 
-If you want to use ROS GUI tools but are unable to do so, due to issues related to GPU/driver pass through, you can start noVNC:
-```bash
-novnc
-```
+For GUI tools via noVNC, run `novnc` inside the container and open `http://localhost:6080/vnc.html?autoconnect=1&resize=scale`. GUI apps need `DISPLAY=:99`, e.g.:
 
-Then open the displayed URL, or go directly to `http://localhost:6080/vnc.html?autoconnect=1&resize=scale` and click `connect`.
-
-Commands that should render into the noVNC desktop need the display variable set, for example:
 ```bash
 DISPLAY=:99 ros2 run rqt_controller_manager rqt_controller_manager
 ```
 
-## Usage notes
+---
 
-- The devcontainer can start without `.env`. If you need host networking for ROS 2 discovery, copy either `.env.example` or `.devcontainer/.env.example` to the matching `.env` file and adjust `DEVCONTAINER_NETWORK_MODE`.
-- The image build needs internet access because it installs Ubuntu and ROS dependencies, downloads MuJoCo, builds `libfranka`, clones `multipanda_ros2`, and builds the workspace template.
-- Changes under `/opt/ros2_ws` are part of the image. If you need to update that bundled dependency workspace, rebuild the devcontainer image.
-- Docker Compose publishes `6080` and `8080` directly on the host. VS Code port auto-forwarding is disabled so it does not create duplicate tunnels on top of those published ports.
-- For noVNC, run `novnc` inside the container and then open `http://localhost:6080/vnc.html?autoconnect=1&resize=scale` in a normal browser. Port `5901` is only the internal `x11vnc` backend.
-- GUI applications that should appear inside the noVNC desktop need `DISPLAY=:99`, for example `DISPLAY=:99 ros2 run rqt_controller_manager rqt_controller_manager`.
+## Repository layout
+
+```
+rnm-workspace-main/
+├── docker/                  # Lightweight ROS 2 + colcon container
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── entrypoint.sh
+├── .devcontainer/           # Full VS Code devcontainer (multipanda_ros2 stack)
+├── ros2_ws/
+│   └── src/
+│       ├── rnm_tools/       # Franka utilities and launch files
+│       └── rnm_sample/      # Minimal publisher/subscriber template
+└── .gitignore
+```
+
+`build/`, `install/`, and `log/` are generated by colcon and are not tracked by git.
 
 ## Common commands
 
