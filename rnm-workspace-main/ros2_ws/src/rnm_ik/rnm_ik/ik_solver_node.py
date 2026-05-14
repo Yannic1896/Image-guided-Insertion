@@ -9,7 +9,6 @@ from geometry_msgs.msg import Pose, PoseStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
 
-# Import your IK solver
 from rnm_ik.ik_solver import IKSolver
 
 
@@ -18,28 +17,17 @@ class IKSolverNode(Node):
 
     def __init__(self):
         super().__init__('ik_solver_node')
-        
-        # Declare parameters
-        self.declare_parameter('robot_description', '/robot_description')
-        self.declare_parameter('frame_id', 'base_link')
-        self.declare_parameter('end_effector_frame', 'tool0')
-        
-        # Get parameters
-        self.robot_description = self.get_parameter('robot_description').value
-        self.frame_id = self.get_parameter('frame_id').value
-        self.end_effector_frame = self.get_parameter('end_effector_frame').value
-        
-        # Initialize IK solver
+  
         self.ik_solver = IKSolver()
         
-        # Create publishers
+        # Publishers
         self.joint_state_pub = self.create_publisher(
             JointState,
             'joint_states',
             10
         )
         
-        # Create subscribers (optional)
+        # Subscribers
         self.target_pose_sub = self.create_subscription(
             PoseStamped,
             'target_pose',
@@ -57,7 +45,8 @@ class IKSolverNode(Node):
             msg: Target pose message
         """
         self.get_logger().info(f'Received target pose')
-        # Implement IK computation here
+
+        # TODO Implement IK computation
         pass
 
 

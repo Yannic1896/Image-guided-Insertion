@@ -1,7 +1,3 @@
-"""
-Inverse Kinematic Solver module.
-This module contains the main IK solver implementation.
-"""
 
 import numpy as np
 from typing import Optional, Tuple
@@ -10,12 +6,10 @@ from typing import Optional, Tuple
 class IKSolver:
     """
     Base class for Inverse Kinematic solvers.
-    Subclass this to implement specific IK algorithms.
     """
 
     def __init__(self, dh_params: Optional[np.ndarray] = None):
         """
-        Initialize the IK solver.
         
         Args:
             dh_params: Denavit-Hartenberg parameters for the robot
