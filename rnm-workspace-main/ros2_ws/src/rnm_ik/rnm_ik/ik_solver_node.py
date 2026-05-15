@@ -61,16 +61,21 @@ class IKSolverNode(Node):
         return dh_matrix
 
     def target_pose_callback(self, msg: PoseStamped) -> None:
-        """
-        Callback for target pose subscription.
         
-        Args:
-            msg: Target pose message
-        """
         self.get_logger().info('Received target pose')
 
-        # TODO Implement IK computation
-        pass
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        z = msg.pose.position.z
+        qx = msg.pose.orientation.x
+        qy = msg.pose.orientation.y
+        qz = msg.pose.orientation.z
+        qw = msg.pose.orientation.w
+        frame = msg.header.frame_id
+        
+        target_pose=np.array([x, y, z, qx, qy, qz, qw])
+        joint_angles=self.ik_solver.solve(target_pose)
+
 
 
 def main(args=None):
