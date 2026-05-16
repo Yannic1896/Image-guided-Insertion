@@ -27,9 +27,9 @@ class IKSolverNode(Node):
         self.ik_solver = IKSolver(dh_params=dh_params)
         
         # Publishers
-        self.joint_state_pub = self.create_publisher(
+        self.joint_command_pub = self.create_publisher(
             JointState,
-            'joint_states',
+            'joint_commands',
             10
         )
         
@@ -90,7 +90,7 @@ class IKSolverNode(Node):
             f'panda_joint{i}' for i in range(1, len(joint_angles) + 1)
         ]
         joint_state_msg.position = [float(angle) for angle in joint_angles]
-        self.joint_state_pub.publish(joint_state_msg)
+        self.joint_command_pub.publish(joint_state_msg)
 
 
 
