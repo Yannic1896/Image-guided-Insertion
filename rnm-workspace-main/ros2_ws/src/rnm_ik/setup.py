@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'ik_solver = rnm_ik.ik_solver_node:main',
+            'fk_solver = rnm_ik.fk_solver_node:main',
         ],
     },
 )

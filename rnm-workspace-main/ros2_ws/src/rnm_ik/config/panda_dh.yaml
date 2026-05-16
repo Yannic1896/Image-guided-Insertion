@@ -3,3 +3,15 @@ ik_solver_node:
         dh_d: [0.3330, 0.0, 0.3160, 0.0, 0.3840, 0.0, 0.0, 0.1070]
         dh_a: [0.0, 0.0, 0.0, 0.0825, -0.0825, 0.0, 0.0880, 0.0]
         dh_alpha: [0.0, -1.57079632679, 1.57079632679, 1.57079632679, -1.57079632679, 1.57079632679, 1.57079632679, 0.0]
+
+fk_solver_node:
+    ros__parameters:
+        dh_d: [0.3330, 0.0, 0.3160, 0.0, 0.3840, 0.0, 0.0, 0.1070]
+        dh_a: [0.0, 0.0, 0.0, 0.0825, -0.0825, 0.0, 0.0880, 0.0]
+        dh_alpha: [0.0, -1.57079632679, 1.57079632679, 1.57079632679, -1.57079632679, 1.57079632679, 1.57079632679, 0.0]
+        joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+        joint_states_topic: /joint_states
+        pose_topic: fk_pose
+        base_frame: panda_link0
+        end_effector_frame: panda_fk_flange
+        publish_tf: true
