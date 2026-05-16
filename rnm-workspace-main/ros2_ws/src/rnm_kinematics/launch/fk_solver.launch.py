@@ -9,16 +9,18 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Generate launch description."""
-    package_share = get_package_share_directory("rnm_ik")
+    package_share = get_package_share_directory("rnm_kinematics")
     dh_config = os.path.join(package_share, "config", "panda_dh.yaml")
+    fk_config = os.path.join(package_share, "config", "fk_solver.yaml")
 
     fk_solver_node = Node(
-        package="rnm_ik",
+        package="rnm_kinematics",
         executable="fk_solver",
         name="fk_solver_node",
         output="screen",
         parameters=[
             dh_config,
+            fk_config,
         ],
     )
 

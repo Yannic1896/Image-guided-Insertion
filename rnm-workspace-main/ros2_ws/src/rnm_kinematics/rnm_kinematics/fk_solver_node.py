@@ -11,7 +11,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import JointState
 from tf2_ros import TransformBroadcaster
 
-from rnm_ik.fk_solver import (
+from rnm_kinematics.fk_solver import (
     ForwardKinematicsSolver,
     quaternion_from_rotation_matrix,
 )

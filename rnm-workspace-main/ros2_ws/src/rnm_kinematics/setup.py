@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 from glob import glob
 
-package_name = 'rnm_ik'
+package_name = 'rnm_kinematics'
 
 setup(
     name=package_name,
@@ -23,8 +23,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ik_solver = rnm_ik.ik_solver_node:main',
-            'fk_solver = rnm_ik.fk_solver_node:main',
+            'ik_solver = rnm_kinematics.ik_solver_node:main',
+            'fk_solver = rnm_kinematics.fk_solver_node:main',
         ],
     },
 )

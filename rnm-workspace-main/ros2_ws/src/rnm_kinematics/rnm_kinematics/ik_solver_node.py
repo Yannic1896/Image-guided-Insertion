@@ -6,10 +6,11 @@ Provides ROS2 services for IK computation.
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 
-from rnm_ik.ik_solver import IKSolver
+from rnm_kinematics.ik_solver import IKSolver
 
 
 class IKSolverNode(Node):
@@ -18,9 +19,9 @@ class IKSolverNode(Node):
     def __init__(self):
         super().__init__('ik_solver_node')
 
-        self.declare_parameter('dh_d', [])
-        self.declare_parameter('dh_a', [])
-        self.declare_parameter('dh_alpha', [])
+        self.declare_parameter('dh_d', Parameter.Type.DOUBLE_ARRAY)
+        self.declare_parameter('dh_a', Parameter.Type.DOUBLE_ARRAY)
+        self.declare_parameter('dh_alpha', Parameter.Type.DOUBLE_ARRAY)
 
         dh_params = self._load_dh_params()
         self.ik_solver = IKSolver(dh_params=dh_params)
