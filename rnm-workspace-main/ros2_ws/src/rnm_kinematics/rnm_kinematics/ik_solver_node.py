@@ -77,6 +77,21 @@ class IKSolverNode(Node):
         target_pose=np.array([x, y, z, qx, qy, qz, qw])
         joint_angles=self.ik_solver.solve(target_pose)
 
+        if joint_angles is None:
+            self.get_logger().warning('IK failed: no solution found for target pose')
+            return
+
+        self._publish_joint_state(joint_angles, msg)
+
+    def _publish_joint_state(self, joint_angles: np.ndarray, pose_msg: PoseStamped) -> None:
+        joint_state_msg = JointState()
+        joint_state_msg.header.stamp = pose_msg.header.stamp
+        joint_state_msg.name = [
+            f'panda_joint{i}' for i in range(1, len(joint_angles) + 1)
+        ]
+        joint_state_msg.position = [float(angle) for angle in joint_angles]
+        self.joint_state_pub.publish(joint_state_msg)
+
 
 
 def main(args=None):
