@@ -1,6 +1,6 @@
+from typing import Optional
 
 import numpy as np
-from typing import Optional
 
 from rnm_kinematics.fk_solver import ForwardKinematicsSolver
 
@@ -10,17 +10,33 @@ class IKSolver:
     Base class for Inverse Kinematic solvers.
     """
 
-    def __init__(self, dh_params: Optional[np.ndarray] = None):
+    def __init__(
+        self,
+        dh_params: Optional[np.ndarray] = None,
+        joint_lower_limits: Optional[np.ndarray] = None,
+        joint_upper_limits: Optional[np.ndarray] = None,
+        max_step: float = 0.05,
+    ):
         """
-        
+
         Args:
             dh_params: Denavit-Hartenberg parameters for the robot
+            joint_lower_limits: Lower joint limits ordered by actuated joint
+            joint_upper_limits: Upper joint limits ordered by actuated joint
+            max_step: Maximum per-iteration joint update in radians
         """
         self.dh_params = dh_params
         self._fk_solver = (
             ForwardKinematicsSolver(dh_params) if dh_params is not None else None
         )
         self._joint_count = self._infer_joint_count(dh_params)
+        self._lower_limits, self._upper_limits = self._load_joint_limits(
+            joint_lower_limits,
+            joint_upper_limits,
+        )
+        self._max_step = float(max_step)
+        if self._max_step <= 0.0:
+            raise ValueError('max_step must be positive')
 
     @staticmethod
     def _infer_joint_count(dh_params: Optional[np.ndarray]) -> int:
@@ -41,6 +57,52 @@ class IKSolver:
             return int(dh_matrix.shape[0] - 1)
 
         return int(dh_matrix.shape[0])
+
+    def _load_joint_limits(
+        self,
+        lower_limits: Optional[np.ndarray],
+        upper_limits: Optional[np.ndarray],
+    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """Validate optional joint limits for the actuated joints."""
+        if lower_limits is None and upper_limits is None:
+            return None, None
+        if lower_limits is None or upper_limits is None:
+            raise ValueError('Both lower and upper joint limits must be provided')
+
+        lower = np.asarray(lower_limits, dtype=float)
+        upper = np.asarray(upper_limits, dtype=float)
+        expected_shape = (self._joint_count,)
+        if lower.shape != expected_shape or upper.shape != expected_shape:
+            raise ValueError(
+                'Joint limit arrays must match the actuated joint count '
+                f'{self._joint_count}.'
+            )
+        if np.any(lower >= upper):
+            raise ValueError('Each lower joint limit must be smaller than its upper limit')
+
+        return lower, upper
+
+    def _initial_joint_angles(self, initial_guess: Optional[np.ndarray]) -> np.ndarray:
+        """Build the starting joint vector, using limits when no guess is available."""
+        if initial_guess is None:
+            if self._lower_limits is not None and self._upper_limits is not None:
+                return 0.5 * (self._lower_limits + self._upper_limits)
+            return np.zeros(self._joint_count, dtype=float)
+
+        initial = np.asarray(initial_guess, dtype=float)
+        if initial.shape != (self._joint_count,):
+            raise ValueError(
+                f'initial_guess must be shape ({self._joint_count},), '
+                f'got {initial.shape}'
+            )
+
+        return self._clip_to_limits(initial.copy())
+
+    def _clip_to_limits(self, joint_angles: np.ndarray) -> np.ndarray:
+        """Clip joint angles to configured physical limits when available."""
+        if self._lower_limits is None or self._upper_limits is None:
+            return joint_angles
+        return np.clip(joint_angles, self._lower_limits, self._upper_limits)
 
     @staticmethod
     def _quat_to_rot_matrix(quaternion: np.ndarray) -> np.ndarray:
@@ -108,13 +170,18 @@ class IKSolver:
 
         return jacobian
 
-    def solve(self, target_pose: np.ndarray) -> Optional[np.ndarray]:
+    def solve(
+        self,
+        target_pose: np.ndarray,
+        initial_guess: Optional[np.ndarray] = None,
+    ) -> Optional[np.ndarray]:
         """
         Solve inverse kinematics for target end-effector pose.
-        
+
         Args:
             target_pose: Target pose (position and orientation)
-            
+            initial_guess: Optional current/seed joint state
+
         Returns:
             Joint angles if solution found, None otherwise
         """
@@ -128,9 +195,8 @@ class IKSolver:
         max_iterations = 200
         tolerance = 1e-4
         damping = 1e-2
-        step_scale = 0.5
 
-        joint_angles = np.zeros(self._joint_count, dtype=float)
+        joint_angles = self._initial_joint_angles(initial_guess)
 
         for _ in range(max_iterations):
             error = self._task_error(joint_angles, target)
@@ -144,8 +210,9 @@ class IKSolver:
             )
             delta_q = jacobian.T @ damped_inverse @ error
 
-            joint_angles += step_scale * delta_q
-            joint_angles = (joint_angles + np.pi) % (2.0 * np.pi) - np.pi
+            delta_q = np.clip(delta_q, -self._max_step, self._max_step)
+            joint_angles += delta_q
+            joint_angles = self._clip_to_limits(joint_angles)
 
             if np.linalg.norm(delta_q) < 1e-7:
                 break
