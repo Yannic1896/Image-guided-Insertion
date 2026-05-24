@@ -1,0 +1,8 @@
+# IK-solver-specific parameters for target poses, current state, and sim commands.
+/**:
+    ros__parameters:
+        joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+        joint_states_topic: /joint_states
+        target_pose_topic: target_pose
+        command_topic: /joint_position_example_controller/joint_command
+        max_step: 0.05
