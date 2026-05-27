@@ -42,12 +42,7 @@ def generate_launch_description() -> LaunchDescription:
         executable="trajectory_node",
         name="trajectory_planning_node",
         parameters=[
-            {"target_pose_topic": LaunchConfiguration("target_pose_topic")},
-            {"joint_states_topic": LaunchConfiguration("joint_states_topic")},
-            {"ik_target_pose_topic": LaunchConfiguration("ik_target_pose_topic")},
-            {"ik_joint_goal_topic": LaunchConfiguration("ik_joint_goal_topic")},
-            {"joint_trajectory_topic": LaunchConfiguration("joint_trajectory_topic")},
-            {"planning_mode": LaunchConfiguration("planning_mode")},
+            "config/trajectory_node.yaml"
         ],
         output="screen",
     )

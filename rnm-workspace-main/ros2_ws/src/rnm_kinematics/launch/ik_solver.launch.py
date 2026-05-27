@@ -47,7 +47,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        DeclareLaunchArgument('target_pose_topic', default_value='target_pose'),
+        DeclareLaunchArgument('target_pose_topic', default_value='/ik_target_pose'),
         DeclareLaunchArgument('joint_states_topic', default_value='/joint_states'),
         DeclareLaunchArgument(
             'command_topic',

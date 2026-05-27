@@ -3,6 +3,7 @@
   <name>rnm_trajectory</name>
   <version>0.0.0</version>
   <description>Sample ROS 2 Python package template for RNM.</description>
+
   <maintainer email="todo@todo.todo">TODO</maintainer>
   <license>TODO: License declaration</license>
 
@@ -10,6 +11,11 @@
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>builtin_interfaces</depend>
+
   <exec_depend>python3</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
