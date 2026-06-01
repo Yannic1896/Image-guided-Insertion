@@ -8,6 +8,8 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
+from .core.trajectory_generator import QuinticTrajectoryGenerator
+from .core.joint_path import JointPath
 
 class TrajectoryPlanningNode(Node):
     def __init__(self):
@@ -54,6 +56,11 @@ class TrajectoryPlanningNode(Node):
         self.current_joint_state = None
         self.last_target_pose = None
         
+        # how do I get them from the yaml??
+        joint_velocity_limits = [2.1750, 2.1750, 2.1750, 2.1750, 2.6100, 2.6100, 2.6100]
+        self.generator = QuinticTrajectoryGenerator(joint_velocity_limits=joint_velocity_limits)
+        self.path_planner = JointPath()
+
         self.get_logger().info('Trajectory Planning Node started.')
 
     def joint_states_callback(self, msg: JointState):
@@ -97,6 +104,7 @@ class TrajectoryPlanningNode(Node):
             
         self.trajectory_to_publish = trajectory_msg
         self.trajectory_publish_index = 0
+        # ?? only sent once as packet
         self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name} at {self.publish_rate_hz} Hz.')
 
     def _publish_trajectory_point(self):
@@ -114,7 +122,27 @@ class TrajectoryPlanningNode(Node):
         
 
     def _plan_joint_trajectory(self, start_q, goal_q, trajectory_msg: JointTrajectory):
-        """ Linear interpolation in joint space """
+        # compute path [start_q, waypoint1, waypoint2, ..., goal_q]
+        path = self.path_planner.joint_path(start_q, goal_q)
+
+        # compute trajectory
+        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, safety_factor=0.1)
+
+        for pt in raw_trajectory:
+            point_msg = JointTrajectoryPoint()
+        
+            point_msg.positions = pt['positions']
+            point_msg.velocities = pt['velocities']
+            point_msg.accelerations = pt['accelerations']
+
+            t = pt['time']
+            duration_msg = Duration()
+            duration_msg.sec = int(t)
+            duration_msg.nanosec = int((t - int(t)) * 1e9)
+            point_msg.time_from_start = duration_msg
+        
+            trajectory_msg.points.append(point_msg)
+
   
 
 def main(args=None):
