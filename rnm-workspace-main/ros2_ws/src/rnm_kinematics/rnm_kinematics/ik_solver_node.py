@@ -15,8 +15,9 @@ from std_msgs.msg import Float64MultiArray
 
 from rnm_kinematics.ik_solver import IKSolver
 
-DEFAULT_COMMAND_TOPIC = '/joint_position_example_controller/joint_command'
-DEFAULT_TARGET_POSE_TOPIC = 'target_pose'
+DEFAULT_COMMAND_TOPIC = '/ik_joint_goal'
+#DEFAULT_COMMAND_TOPIC = '/joint_position_example_controller/joint_command'
+DEFAULT_TARGET_POSE_TOPIC = '/target_pose'
 DEFAULT_JOINT_STATES_TOPIC = '/joint_states'
 DEFAULT_JOINT_NAMES = [
     'panda_joint1',

@@ -51,7 +51,7 @@ def generate_launch_description():
         DeclareLaunchArgument('joint_states_topic', default_value='/joint_states'),
         DeclareLaunchArgument(
             'command_topic',
-            default_value='/joint_position_example_controller/joint_command',
+            default_value='/ik_joint_goal',
         ),
         DeclareLaunchArgument('max_step', default_value='0.05'),
         ik_solver_node,

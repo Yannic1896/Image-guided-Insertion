@@ -43,7 +43,7 @@ class TrajectoryPlanningNode(Node):
         self.publish_rate_hz = 1000 # Robot needs 1000Hz, for testing we can use lower rates like 100Hz or 500Hz
         self.trajectory_to_publish = None
         self.trajectory_publish_index = 0
-        self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
+        #self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(
@@ -85,8 +85,9 @@ class TrajectoryPlanningNode(Node):
 
     def ik_joint_goal_callback(self, msg: Float64MultiArray):
         """ Receive Goal Joint State from IK node """
-        
+        self.get_logger().info('Received IK joint goal, checking...')
         if self.current_joint_state is None:
+            self.get_logger().error('Current joint state empty')
             return
             
         goal_q = msg.data
@@ -102,10 +103,13 @@ class TrajectoryPlanningNode(Node):
         trajectory_msg.joint_names = self.joint_names
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
             
-        self.trajectory_to_publish = trajectory_msg
-        self.trajectory_publish_index = 0
+        #self.trajectory_to_publish = trajectory_msg
+        #self.trajectory_publish_index = 0
         # ?? only sent once as packet
-        self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name} at {self.publish_rate_hz} Hz.')
+        #self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name} at {self.publish_rate_hz} Hz.')
+        
+        self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name}.')
+        self.joint_traj_pub.publish(trajectory_msg)
 
     def _publish_trajectory_point(self):
         if self.trajectory_to_publish is not None:
