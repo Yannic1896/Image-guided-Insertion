@@ -101,6 +101,7 @@ class TrajectoryPlanningNode(Node):
         # Generate Trajectory
         trajectory_msg = JointTrajectory()
         trajectory_msg.joint_names = self.joint_names
+        trajectory_msg.header.stamp = self.get_clock().now().to_msg()
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
             
         #self.trajectory_to_publish = trajectory_msg
