@@ -39,11 +39,13 @@ class TrajectoryPlanningNode(Node):
 
         # Publishers
         self.ik_target_pub = self.create_publisher(PoseStamped, ik_target_pose_topic, 10)
-        self.joint_traj_pub = self.create_publisher(JointTrajectory, joint_trajectory_topic, 10)
+        self.joint_traj_pub = self.create_publisher(Float64MultiArray, joint_trajectory_topic, 10)
+
         self.publish_rate_hz = 1000 # Robot needs 1000Hz, for testing we can use lower rates like 100Hz or 500Hz
-        self.trajectory_to_publish = None
+        self.trajectory_to_publish = []
         self.trajectory_publish_index = 0
-        #self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
+
+        self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(
@@ -91,6 +93,7 @@ class TrajectoryPlanningNode(Node):
             return
             
         goal_q = msg.data
+        self.get_logger().info(f"START_Q: {self.current_joint_state} | GOAL_Q: {goal_q}")
         if len(goal_q) != len(self.joint_names):
             self.get_logger().error(f"Received {len(goal_q)} IK joints, expected {len(self.joint_names)}")
             return
@@ -101,29 +104,46 @@ class TrajectoryPlanningNode(Node):
         # Generate Trajectory
         trajectory_msg = JointTrajectory()
         trajectory_msg.joint_names = self.joint_names
-        trajectory_msg.header.stamp = self.get_clock().now().to_msg()
+        #trajectory_msg.header.stamp = self.get_clock().now().to_msg()
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
-            
+
+        queue = []
+        for point in trajectory_msg.points:
+            queue.append(list(point.positions))
+
+        self.trajectory_to_publish = queue
+        self.get_logger().info(f'Generated trajectory of {len(queue)} joint commands.')
+
         #self.trajectory_to_publish = trajectory_msg
         #self.trajectory_publish_index = 0
         # ?? only sent once as packet
         #self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name} at {self.publish_rate_hz} Hz.')
         
-        self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name}.')
-        self.joint_traj_pub.publish(trajectory_msg)
+        #self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name}.')
+        #self.joint_traj_pub.publish(trajectory_msg)
 
     def _publish_trajectory_point(self):
-        if self.trajectory_to_publish is not None:
-            points = self.trajectory_to_publish.points
-            if self.trajectory_publish_index < len(points):
-                msg = JointTrajectory()
-                msg.joint_names = self.trajectory_to_publish.joint_names
-                msg.points.append(points[self.trajectory_publish_index])
-                self.joint_traj_pub.publish(msg)
-                self.trajectory_publish_index += 1
-            else:
-                self.trajectory_to_publish = None
-                self.trajectory_publish_index = 0
+        if self.trajectory_to_publish:
+            current_positions = self.trajectory_to_publish.pop(0)
+            msg = Float64MultiArray()
+            msg.data = current_positions
+            #self.get_logger().info('Publishing joint commands')
+            self.joint_traj_pub.publish(msg)
+
+        #if not self.trajectory_to_publish:
+            #self.get_logger().info('No more trajectory points to send.')
+
+        #if self.trajectory_to_publish is not None:
+        #    points = self.trajectory_to_publish.points
+        #    if self.trajectory_publish_index < len(points):
+        #        msg = JointTrajectory()
+        #        msg.joint_names = self.trajectory_to_publish.joint_names
+        #        msg.points.append(points[self.trajectory_publish_index])
+        #        self.joint_traj_pub.publish(msg)
+        #        self.trajectory_publish_index += 1
+        #    else:
+        #    self.trajectory_to_publish = None
+        #        self.trajectory_publish_index = 0
         
 
     def _plan_joint_trajectory(self, start_q, goal_q, trajectory_msg: JointTrajectory):
