@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, MultiArrayLayout, MultiArrayDimension
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
 from .core.trajectory_generator import QuinticTrajectoryGenerator
@@ -17,7 +17,7 @@ class TrajectoryPlanningNode(Node):
         
         # Parameters
         self.declare_parameter('target_pose_topic', '/target_pose')
-        self.declare_parameter('joint_states_topic', '/joint_states')
+        self.declare_parameter('joint_states_topic', '/franka_state_controller/joint_states_desired')
         self.declare_parameter('ik_target_pose_topic', '/ik_target_pose')
         self.declare_parameter('ik_joint_goal_topic', '/ik_joint_goal')
         self.declare_parameter('joint_trajectory_topic', '/joint_position_example_controller/joint_trajectory_command')
@@ -45,7 +45,7 @@ class TrajectoryPlanningNode(Node):
         self.trajectory_to_publish = []
         self.trajectory_publish_index = 0
 
-        self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
+        #self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(
@@ -107,12 +107,34 @@ class TrajectoryPlanningNode(Node):
         #trajectory_msg.header.stamp = self.get_clock().now().to_msg()
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
 
-        queue = []
-        for point in trajectory_msg.points:
-            queue.append(list(point.positions))
+        flattened_data = []
+        n_points = len(trajectory_msg.points)
+        n_joints = len(self.joint_names)
 
-        self.trajectory_to_publish = queue
-        self.get_logger().info(f'Generated trajectory of {len(queue)} joint commands.')
+        for point in trajectory_msg.points:
+            flattened_data.extend(list(point.positions))
+
+        array_msg = Float64MultiArray()
+
+        dim_points = MultiArrayDimension()
+        dim_points.label = "points"
+        dim_points.size = n_points
+        dim_points.stride = n_points * n_joints
+
+        dim_joints = MultiArrayDimension()
+        dim_joints.label = "joints"
+        dim_joints.size = n_joints
+        dim_joints.stride = n_joints
+
+        array_msg.layout.dim = [dim_points, dim_joints]
+        array_msg.layout.data_offset = 0
+        array_msg.data = flattened_data
+
+        self.get_logger().info(f'Publishing full trajectory with {n_points} steps and ({len(flattened_data)} floats).')
+        self.joint_traj_pub.publish(array_msg)
+
+        #self.trajectory_to_publish = queue
+        #self.get_logger().info(f'Generated trajectory of {len(queue)} joint commands.')
 
         #self.trajectory_to_publish = trajectory_msg
         #self.trajectory_publish_index = 0

@@ -2,7 +2,7 @@
 fk_solver_node:
     ros__parameters:
         joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
-        joint_states_topic: /joint_states
+        joint_states_topic: /franka_state_controller/joint_states_desired
         pose_topic: /fk_pose
         base_frame: panda_link0
         end_effector_frame: panda_fk_flange
