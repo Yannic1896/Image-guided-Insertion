@@ -65,7 +65,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         target_pose_topic_arg,
-        joint_states_topic_arg,
+        #joint_states_topic_arg,
         command_topic_arg,
         max_step_arg,
         use_sim_arg,
