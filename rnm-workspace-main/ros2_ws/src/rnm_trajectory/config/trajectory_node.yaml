@@ -2,7 +2,7 @@
 /**:
   ros__parameters:
     target_pose_topic: /target_pose
-    joint_states_topic: /joint_states
+    joint_states_topic: /franka_state_controller/joint_states_desired
     ik_target_pose_topic: /ik_target_pose
     ik_joint_goal_topic: /ik_joint_goal
     joint_trajectory_topic: /joint_trajectory
