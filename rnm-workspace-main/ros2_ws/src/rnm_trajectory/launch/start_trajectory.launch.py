@@ -65,6 +65,7 @@ def generate_launch_description() -> LaunchDescription:
         executable="trajectory_node",
         name="trajectory_planning_node",
         parameters=[
+            trajectory_config,
             {
             "use_sim_time": use_sim,
             "joint_states_topic": input_joint_topic,
@@ -80,7 +81,6 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription([
         target_pose_topic_arg,
-        #joint_states_topic_arg,
         ik_target_pose_topic_arg,
         ik_joint_goal_topic_arg,
         joint_trajectory_topic_arg,

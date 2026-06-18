@@ -26,6 +26,19 @@ class TrajectoryPlanningNode(Node):
             'panda_joint1', 'panda_joint2', 'panda_joint3', 'panda_joint4',
             'panda_joint5', 'panda_joint6', 'panda_joint7'
         ])
+        self.declare_parameter('joint_velocity_limits', [0.0])
+        self.declare_parameter('joint_acceleration_limits', [0.0])
+        self.declare_parameter('joint_jerk_limits', [0.0])
+
+        # Joint limits
+        joint_velocity_limits = self.get_parameter('joint_velocity_limits').value
+        joint_acceleration_limits = self.get_parameter('joint_acceleration_limits').value
+        joint_jerk_limits = self.get_parameter('joint_jerk_limits').value
+
+        self.get_logger().info(f"--- PARAMETER CHECK ---")
+        self.get_logger().info(f"Velocity limits: {joint_velocity_limits}")
+        self.get_logger().info(f"Acceleration limits: {joint_acceleration_limits}")
+        self.get_logger().info(f"Jerk limits: {joint_jerk_limits}")
         
         # Topic Names
         target_pose_topic = self.get_parameter('target_pose_topic').value
@@ -44,8 +57,6 @@ class TrajectoryPlanningNode(Node):
         self.publish_rate_hz = 1000 # Robot needs 1000Hz, for testing we can use lower rates like 100Hz or 500Hz
         self.trajectory_to_publish = []
         self.trajectory_publish_index = 0
-
-        #self.trajectory_timer = self.create_timer(1.0 / self.publish_rate_hz, self._publish_trajectory_point)
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(
@@ -58,9 +69,7 @@ class TrajectoryPlanningNode(Node):
         self.current_joint_state = None
         self.last_target_pose = None
         
-        # how do I get them from the yaml??
-        joint_velocity_limits = [2.1750, 2.1750, 2.1750, 2.1750, 2.6100, 2.6100, 2.6100]
-        self.generator = QuinticTrajectoryGenerator(joint_velocity_limits=joint_velocity_limits)
+        self.generator = QuinticTrajectoryGenerator(joint_velocity_limits, joint_acceleration_limits, joint_jerk_limits)
         self.path_planner = JointPath()
 
         self.get_logger().info('Trajectory Planning Node started.')
@@ -104,9 +113,9 @@ class TrajectoryPlanningNode(Node):
         # Generate Trajectory
         trajectory_msg = JointTrajectory()
         trajectory_msg.joint_names = self.joint_names
-        #trajectory_msg.header.stamp = self.get_clock().now().to_msg()
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
 
+        # Put data into Float64MultiArray message
         flattened_data = []
         n_points = len(trajectory_msg.points)
         n_joints = len(self.joint_names)
@@ -130,50 +139,16 @@ class TrajectoryPlanningNode(Node):
         array_msg.layout.data_offset = 0
         array_msg.data = flattened_data
 
+        # Publish full trajectory at once
         self.get_logger().info(f'Publishing full trajectory with {n_points} steps and ({len(flattened_data)} floats).')
-        self.joint_traj_pub.publish(array_msg)
-
-        #self.trajectory_to_publish = queue
-        #self.get_logger().info(f'Generated trajectory of {len(queue)} joint commands.')
-
-        #self.trajectory_to_publish = trajectory_msg
-        #self.trajectory_publish_index = 0
-        # ?? only sent once as packet
-        #self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name} at {self.publish_rate_hz} Hz.')
-        
-        #self.get_logger().info(f' Publish trajectory with {len(trajectory_msg.points)} points to {self.joint_traj_pub.topic_name}.')
-        #self.joint_traj_pub.publish(trajectory_msg)
-
-    def _publish_trajectory_point(self):
-        if self.trajectory_to_publish:
-            current_positions = self.trajectory_to_publish.pop(0)
-            msg = Float64MultiArray()
-            msg.data = current_positions
-            #self.get_logger().info('Publishing joint commands')
-            self.joint_traj_pub.publish(msg)
-
-        #if not self.trajectory_to_publish:
-            #self.get_logger().info('No more trajectory points to send.')
-
-        #if self.trajectory_to_publish is not None:
-        #    points = self.trajectory_to_publish.points
-        #    if self.trajectory_publish_index < len(points):
-        #        msg = JointTrajectory()
-        #        msg.joint_names = self.trajectory_to_publish.joint_names
-        #        msg.points.append(points[self.trajectory_publish_index])
-        #        self.joint_traj_pub.publish(msg)
-        #        self.trajectory_publish_index += 1
-        #    else:
-        #    self.trajectory_to_publish = None
-        #        self.trajectory_publish_index = 0
-        
+        self.joint_traj_pub.publish(array_msg)        
 
     def _plan_joint_trajectory(self, start_q, goal_q, trajectory_msg: JointTrajectory):
         # compute path [start_q, waypoint1, waypoint2, ..., goal_q]
         path = self.path_planner.joint_path(start_q, goal_q)
 
         # compute trajectory
-        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, safety_factor=0.1)
+        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, safety_factor=0.05)
 
         for pt in raw_trajectory:
             point_msg = JointTrajectoryPoint()

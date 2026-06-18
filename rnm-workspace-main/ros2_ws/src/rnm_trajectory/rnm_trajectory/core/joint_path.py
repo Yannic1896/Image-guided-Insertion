@@ -12,5 +12,5 @@ class JointPath:
 
 
     def joint_path(self, start_q, goal_q):
-        """Dummy"""
+        """Dummy, to be extended if needed"""
         return [start_q, goal_q]

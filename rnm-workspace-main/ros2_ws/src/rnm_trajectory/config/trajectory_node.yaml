@@ -8,3 +8,6 @@
     joint_trajectory_topic: /joint_trajectory
     planning_mode: joint
     joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+    joint_velocity_limits: [2.1750, 2.1750, 2.1750, 2.1750, 2.6100, 2.6100, 2.6100]
+    joint_acceleration_limits: [15.0, 7.5, 10.0, 12.5, 15.0, 20.0, 20.0]
+    joint_jerk_limits: [7500.0, 3750.0, 5000.0, 6250.0, 7500.0, 10000.0, 10000.0]
