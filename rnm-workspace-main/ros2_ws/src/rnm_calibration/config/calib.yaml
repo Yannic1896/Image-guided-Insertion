@@ -1,0 +1,166 @@
+calibration:
+  version: 1
+  calibrated_at: '2026-06-22T13:30:21.834864+00:00'
+  target_type: checkerboard
+  sample_count: 25
+  rms_errors:
+    rgb: 0.15298390905162473
+    depth: 0.530323633321728
+    stereo: 0.4697509476488676
+rgb_camera:
+  camera_name: azure_kinect_rgb
+  frame_id: rgb_camera_optical_frame
+  image_width: 2048
+  image_height: 1536
+  distortion_model: plumb_bob
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data:
+    - 942.7713921620757
+    - 0.0
+    - 1022.622924363134
+    - 0.0
+    - 942.6692051776602
+    - 769.3820231238578
+    - 0.0
+    - 0.0
+    - 1.0
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data:
+    - 0.0806674054326043
+    - 0.05035116731789931
+    - -0.0007149194598377846
+    - 0.00032618964408285536
+    - -0.2824278890222395
+  rectification_matrix:
+    rows: 3
+    cols: 3
+    data:
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+  projection_matrix:
+    rows: 3
+    cols: 4
+    data:
+    - 942.7713921620757
+    - 0.0
+    - 1022.622924363134
+    - 0.0
+    - 0.0
+    - 942.6692051776602
+    - 769.3820231238578
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+depth_camera:
+  camera_name: azure_kinect_depth
+  frame_id: depth_camera_optical_frame
+  image_width: 640
+  image_height: 576
+  distortion_model: plumb_bob
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data:
+    - 526.9887506068426
+    - 0.0
+    - 323.32362090468683
+    - 0.0
+    - 525.8416073766178
+    - 330.472682256031
+    - 0.0
+    - 0.0
+    - 1.0
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data:
+    - -0.35654555930456927
+    - 0.13758523235140338
+    - -0.0044139743005108195
+    - 0.0005734275141519045
+    - 0.010245849770752562
+  rectification_matrix:
+    rows: 3
+    cols: 3
+    data:
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+  projection_matrix:
+    rows: 3
+    cols: 4
+    data:
+    - 526.9887506068426
+    - 0.0
+    - 323.32362090468683
+    - 0.0
+    - 0.0
+    - 525.8416073766178
+    - 330.472682256031
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+extrinsics:
+  parent_frame_id: rgb_camera_optical_frame
+  child_frame_id: depth_camera_optical_frame
+  rotation_depth_to_rgb:
+    rows: 3
+    cols: 3
+    data:
+    - 0.9999842569280919
+    - 0.0006982315301665969
+    - -0.005567617866040579
+    - -0.00018064490390809105
+    - 0.9957194067966768
+    - 0.09242743259386077
+    - 0.005608320906533887
+    - -0.09242497174034875
+    - 0.995703857246423
+  translation_depth_to_rgb:
+    rows: 3
+    cols: 1
+    data:
+    - -0.02961360318220999
+    - 0.0048292445626894
+    - -0.048423525858176386
+  rotation_rgb_to_depth:
+    rows: 3
+    cols: 3
+    data:
+    - 0.9999842569280919
+    - -0.00018064490390809105
+    - 0.005608320906533887
+    - 0.0006982315301665969
+    - 0.9957194067966768
+    - -0.09242497174034875
+    - -0.005567617866040579
+    - 0.09242743259386077
+    - 0.995703857246423
+  translation_rgb_to_depth:
+    rows: 3
+    cols: 1
+    data:
+    - 0.0298855840239841
+    - -0.009263438388783506
+    - 0.04760425957600578

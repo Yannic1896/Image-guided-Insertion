@@ -1,0 +1,39 @@
+from glob import glob
+
+from setuptools import find_packages, setup
+
+package_name = 'rnm_calibration'
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=find_packages(exclude=['test']),
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
+        ('share/' + package_name + '/config', glob('config/*.yaml')),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='vscode',
+    maintainer_email='mohamad.nassif@tuhh.de',
+    description='TODO: Package description',
+    license='MIT-0',
+    extras_require={
+        'test': [
+            'pytest',
+        ],
+    },
+    entry_points={
+        'console_scripts': [
+            'azure_kinect_calibrate = '
+            'rnm_calibration.azure_kinect_calibrator:main',
+            'azure_kinect_calibration_publisher = '
+            'rnm_calibration.calibration_publisher:main',
+            'k4a_extract_calibration = '
+            'rnm_calibration.k4a_factory_calibration:main',
+        ],
+    },
+)
