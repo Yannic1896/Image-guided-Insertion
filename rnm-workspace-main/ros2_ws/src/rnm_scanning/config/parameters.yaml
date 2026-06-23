@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    # Scanning mode: 'hand_eye' or 'model_registration'
+    scanning_mode: hand_eye
+    max_samples: 30
+
+    # Workspace bounding box for hand-eye poses [m]
+    x_min: 0.40
+    x_max: 0.85
+    y_min: -0.30
+    y_max: 0.30
+    z_min: 0.40
+    z_max: 0.70
+
+    # Scan poses for model registration: flat list of [x, y, z, roll_deg, pitch_deg, yaw_deg] per pose
+    model_reg_poses: [
+       0.40,  0.00, 0.50, 180.0,  0.0,   0.0,
+       0.45,  0.15, 0.50, 180.0,  0.0,  30.0,
+       0.45, -0.15, 0.50, 180.0,  0.0, -30.0,
+       0.35,  0.10, 0.55, 175.0,  5.0,  15.0,
+       0.35, -0.10, 0.55, 175.0,  5.0, -15.0,
+       0.50,  0.00, 0.45, 180.0,  0.0,   0.0,
+    ]

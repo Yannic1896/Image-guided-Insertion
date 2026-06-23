@@ -1,82 +1,84 @@
 """Synchronizes robot movement & image acquisition."""
 
-import numpy as np
-import rclpy
-from rclpy.node import Node
-import random
 import math
+import random
 
+import rclpy
+from geometry_msgs.msg import PoseStamped, Quaternion
+from rclpy.node import Node
 from std_msgs.msg import Bool
-from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Float64MultiArray
-from geometry_msgs.msg import Quaternion
 
 
 class ScanningNode(Node):
     def __init__(self) -> None:
         super().__init__('scanning_node')
 
-        self.declare_parameter('current_pose_topic', '/fk_pose')
-        self.declare_parameter('trajectory_status_topic', '/trajectory_finished')
-        self.declare_parameter('camera_pointcloud_topic', '/points2')
+        self.declare_parameter('scanning_mode', 'hand_eye')  # 'hand_eye' or 'model_registration'
+        self.declare_parameter('max_samples', 30)
 
-        self.declare_parameter('scanning_mode', 'hand_eye') # Options: 'hand_eye' or 'model_registration'
-
-        #topic = self.get_parameter("topic").get_parameter_value().string_value
+        #TODO: Test parameters 
+        self.declare_parameter('x_min', 0.40)
+        self.declare_parameter('x_max', 0.85)
+        self.declare_parameter('y_min', -0.30)
+        self.declare_parameter('y_max', 0.30)
+        self.declare_parameter('z_min', 0.40)
+        self.declare_parameter('z_max', 0.70)
 
         self.scanning_mode = self.get_parameter('scanning_mode').value
+        self.max_samples = self.get_parameter('max_samples').value
+        self.x_bounds = (
+            self.get_parameter('x_min').value,
+            self.get_parameter('x_max').value,
+        )
+        self.y_bounds = (
+            self.get_parameter('y_min').value,
+            self.get_parameter('y_max').value,
+        )
+        self.z_bounds = (
+            self.get_parameter('z_min').value,
+            self.get_parameter('z_max').value,
+        )
+
+        # [x, y, z, roll_deg, pitch_deg, yaw_deg]
+        self.model_reg_poses = [
+            [0.40,  0.00, 0.50, 180.0,  0.0,   0.0],
+            [0.45,  0.15, 0.50, 180.0,  0.0,  30.0],
+            [0.45, -0.15, 0.50, 180.0,  0.0, -30.0],
+            [0.35,  0.10, 0.55, 175.0,  5.0,  15.0],
+            [0.35, -0.10, 0.55, 175.0,  5.0, -15.0],
+            [0.50,  0.00, 0.45, 180.0,  0.0,   0.0],
+        ]
 
         self.chessboard_visible = False
-        self.trajectory_finished = True
+        self.trajectory_finished = False 
         self.latest_fk_pose = None
         self.sample_count = 0
-        self.max_samples = 30
         self.model_reg_index = 0
 
         # Subscribers
         self.fk_sub = self.create_subscription(
-            PoseStamped,
-            "/fk_pose",
-            self.fk_callback,
-            10
+            PoseStamped, '/fk_pose', self.fk_callback, 10
         )
-
         self.detect_sub = self.create_subscription(
-            Bool,
-            "/chessboard_detected",
-            self.detect_callback,
-            10
+            Bool, '/chessboard_detected', self.detect_callback, 10
         )
-
         self.trajectory_status_sub = self.create_subscription(
-            Bool,
-            "/trajectory_finished",
-            self.trajectory_callback,
-            10
+            Bool, '/trajectory_finished', self.trajectory_callback, 10
         )
 
         # Publishers
-        self.target_pub = self.create_publisher(
-            PoseStamped, 
-            "/target_pose",
-            10
-        )
+        self.target_pub = self.create_publisher(PoseStamped, '/target_pose', 10)
+        self.trigger_image_pub = self.create_publisher(Bool, '/trigger_image_capture', 10)
+        self.trigger_pointcloud_pub = self.create_publisher(Bool, '/trigger_pointcloud_capture', 10)
 
-        self.trigger_image_pub = self.create_publisher(
-            Bool,
-            "/trigger_image_capture",
-            10
-        )
-
-        self.trigger_pointcloud_pub = self.create_publisher(
-            Bool,
-            "/trigger_pointcloud_capture",
-            10
-        )
-
-        self.loop_timer = self.create_timer(1.0, self.scanning.loop)
+        self.loop_timer = self.create_timer(1.0, self.scanning_loop)
         self.get_logger().info(f"Scanning Node started in [{self.scanning_mode}] mode.")
 
+        self.send_next_target()
+
+    # ------------------------------------------------------------------
+    # Subscriber callbacks
+    # ------------------------------------------------------------------
 
     def fk_callback(self, msg: PoseStamped) -> None:
         self.latest_fk_pose = msg
@@ -87,109 +89,106 @@ class ScanningNode(Node):
     def trajectory_callback(self, msg: Bool) -> None:
         self.trajectory_finished = msg.data
 
+
     def scanning_loop(self) -> None:
 
         if not self.trajectory_finished:
-            # Robot moving
             return
-        
-        if self.trajectory_finished:
-            # Hand Eye Calibration
-            if self.scanning_mode == 'hand_eye':
-                if self.chessboard_visible:
-                    self.get_logger().info("Robot settled and chessboard visible! Triggering capture...")
-                    trigger_msg = Bool()
-                    trigger_msg.data = True
-                    self.trigger_image_pub.publish(trigger_msg)
-                    self.sample_count += 1
 
-                    if self.sample_count >= self.max_samples:
-                        self.get_logger().info("Finished gathering hand-eye data.")
-                        self.loop_timer.cancel()
-                        return
-                else:
-                    self.get_logger().warn("Robot stopped, but chessboard not visible. Discarding pose.")
+        if self.scanning_mode == 'hand_eye':
+            if self.chessboard_visible:
+                self.get_logger().info(
+                    f"Robot settled and chessboard visible — triggering image capture "
+                    f"({self.sample_count + 1}/{self.max_samples})."
+                )
+                trigger_msg = Bool()
+                trigger_msg.data = True
+                self.trigger_image_pub.publish(trigger_msg)
+                self.sample_count += 1
 
-            # Model Registration
-            elif self.scanning_mode == 'model_registration':
-                self.get_logger().info("Settled at scan point. Triggering point cloud capture...")
-                # Trigger point cloud collection code here if applicable
-                self.model_reg_index += 1
-                if self.model_reg_index >= len(self.model_reg_poses):
-                    self.get_logger().info("Finished full scanning sweep around phantom!")
+                if self.sample_count >= self.max_samples:
+                    self.get_logger().info("Hand-eye calibration data collection complete.")
                     self.loop_timer.cancel()
                     return
+            else:
+                self.get_logger().warn(
+                    "Chessboard not visible"
+                )
 
-            # Move on to next target
-            self.send_next_target()
+        elif self.scanning_mode == 'model_registration':
+            self.get_logger().info(
+                f"Settled at scan point {self.model_reg_index + 1}/{len(self.model_reg_poses)} "
+                f"— triggering point cloud capture."
+            )
+            trigger_msg = Bool()
+            trigger_msg.data = True
+            self.trigger_pointcloud_pub.publish(trigger_msg)
+            self.model_reg_index += 1
 
-def send_next_target(self) -> None:
-    """Calculates coordinates according to the chosen parameter tracking mode."""
-    self.trajectory_finished = False # Lock loop until trajectory completes
-    
-    # Instantiate the correct message type
-    target_msg = PoseStamped()
-    target_msg.header.stamp = self.get_clock().now().to_msg()
-    target_msg.header.frame_id = "panda_link0"  # Or your system's base frame ID
-    
-    # Hand Eye Calibration
-    if self.scanning_mode == 'hand_eye':
-        # Generate random coordinates in your bounding box
-        x = random.uniform(*self.x_bounds)
-        y = random.uniform(*self.y_bounds)
-        z = random.uniform(*self.z_bounds)
-        
-        # Baseline looking downward orientation (Roll=180 deg) +/- 5 deg wiggle room
-        max_tweak = math.radians(5.0)
-        roll = math.radians(180.0) + random.uniform(-max_tweak, max_tweak)
-        pitch = 0.0 + random.uniform(-max_tweak, max_tweak)
-        yaw = 0.0 + random.uniform(-max_tweak, max_tweak)
-        
-        self.get_logger().info(f"Sending automated Hand-Eye Target: XYZ=[{x:.2f}, {y:.2f}, {z:.2f}]")
-        
-        # Populate position
-        target_msg.pose.position.x = x
-        target_msg.pose.position.y = y
-        target_msg.pose.position.z = z
-        
-        # Populate orientation using the helper function
-        target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
+            if self.model_reg_index >= len(self.model_reg_poses):
+                self.get_logger().info("Scanning complete — all point clouds captured.")
+                self.loop_timer.cancel()
+                return
 
+        self.send_next_target()
 
-    # Model Registration
-    elif self.scanning_mode == 'model_registration':
-        pose = self.model_reg_poses[self.model_reg_index]
-        self.get_logger().info(f"Moving to phantom scan point {self.model_reg_index + 1}/{len(self.model_reg_poses)}")
-        
-        target_msg.pose.position.x = pose[0]
-        target_msg.pose.position.y = pose[1]
-        target_msg.pose.position.z = pose[2]
-        
-        # Convert degrees to radians for model_reg_poses
-        r = math.radians(pose[3])
-        p = math.radians(pose[4])
-        y = math.radians(pose[5])
-        target_msg.pose.orientation = self.euler_to_quaternion(r, p, y)
+    # ------------------------------------------------------------------
+    # Motion helpers
+    # ------------------------------------------------------------------
 
-    # Publish target pose for trajectory generation
-    self.target_pub.publish(target_msg)
+    def send_next_target(self) -> None:
+        self.trajectory_finished = False
 
-def euler_to_quaternion(self, r, p, y):
-    """Converts euler angles (radians) to a geometry_msgs Quaternion format."""
-    
-    cy = math.cos(y * 0.5)
-    sy = math.sin(y * 0.5)
-    cp = math.cos(p * 0.5)
-    sp = math.sin(p * 0.5)
-    cr = math.cos(r * 0.5)
-    sr = math.sin(r * 0.5)
+        target_msg = PoseStamped()
+        target_msg.header.stamp = self.get_clock().now().to_msg()
+        target_msg.header.frame_id = 'panda_link0'
 
-    q = Quaternion()
-    q.w = cr * cp * cy + sr * sp * sy
-    q.x = sr * cp * cy - cr * sp * sy
-    q.y = cr * sp * cy + sr * cp * sy
-    q.z = cr * cp * sy - sr * sp * cy
-    return q
+        if self.scanning_mode == 'hand_eye':
+            x = random.uniform(*self.x_bounds)
+            y = random.uniform(*self.y_bounds)
+            z = random.uniform(*self.z_bounds)
+            max_tweak = math.radians(5.0)
+            roll = math.radians(180.0) + random.uniform(-max_tweak, max_tweak)
+            pitch = random.uniform(-max_tweak, max_tweak)
+            yaw = random.uniform(-max_tweak, max_tweak)
+            self.get_logger().info(
+                f"Moving to hand-eye pose: XYZ,RYP=[{x:.3f}, {y:.3f}, {z:.3f}, {roll:.3f}, {pitch:.3f}, {yaw:.3f}]"
+            )
+            target_msg.pose.position.x = x
+            target_msg.pose.position.y = y
+            target_msg.pose.position.z = z
+            target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
+
+        elif self.scanning_mode == 'model_registration':
+            pose = self.model_reg_poses[self.model_reg_index]
+            self.get_logger().info(
+                f"Moving to scan point {self.model_reg_index + 1}/{len(self.model_reg_poses)}"
+            )
+            target_msg.pose.position.x = pose[0]
+            target_msg.pose.position.y = pose[1]
+            target_msg.pose.position.z = pose[2]
+            target_msg.pose.orientation = self.euler_to_quaternion(
+                math.radians(pose[3]),
+                math.radians(pose[4]),
+                math.radians(pose[5]),
+            )
+
+        self.target_pub.publish(target_msg)
+
+    def euler_to_quaternion(self, roll: float, pitch: float, yaw: float) -> Quaternion:
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        cp = math.cos(pitch * 0.5)
+        sp = math.sin(pitch * 0.5)
+        cr = math.cos(roll * 0.5)
+        sr = math.sin(roll * 0.5)
+
+        q = Quaternion()
+        q.w = cr * cp * cy + sr * sp * sy
+        q.x = sr * cp * cy - cr * sp * sy
+        q.y = cr * sp * cy + sr * cp * sy
+        q.z = cr * cp * sy - sr * sp * cy
+        return q
 
 
 def main(args: list[str] | None = None) -> None:
