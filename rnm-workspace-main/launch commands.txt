@@ -1,0 +1,78 @@
+ros2 launch rnm_tools camera_static_tf.launch.py invert_hand_eye:=false use_sim_time:=true
+ros2 launch rnm_tools scanning_bag_tf_fixes.launch.py use_sim_time:=true
+rviz2 --ros-args -p use_sim_time:=true
+ros2 launch rnm_mapping cloud_stitcher.launch.py \
+  use_sim_time:=true \
+  target_frame:=panda_link0 \
+  icp_enabled:=false
+ros2 bag play -s mcap scanning_bag.mcap --clock 50 --start-paused --topics /tf /k4a/points2 --read-ahead-queue-size 10000
+
+
+ros2 service call /save_scan std_srvs/srv/Trigger {}
+
+ros2 run rnm_mapping locate_stl_target \
+  --target-frame panda_link0 \
+  --target-point-topic /target_point \
+  --target-pose-topic /target_pose \
+  --publish-duration-sec 30
+
+1. Start Real Robot / Camera
+Start your robot bringup and Azure driver as usual.
+Check topics:
+ros2 topic list | grep k4a
+ros2 topic list | grep tf
+Check cloud header frame:
+ros2 topic echo --once /k4a/points2 --field header
+Check cloud fields/colors:
+ros2 topic echo --once /k4a/points2 --field fields
+Check camera info frames:
+ros2 topic echo --once /k4a/rgb/camera_info --field header.frame_id
+ros2 topic echo --once /k4a/depth/camera_info --field header.frame_id
+2. Publish Camera Hand-Eye TF
+Current repo command:
+source install/setup.bash
+ros2 launch rnm_tools camera_static_tf.launch.py
+But note: this currently publishes:
+panda_EE -> rgb_camera_link
+rgb_camera_link -> depth_camera_link
+If Azure already publishes rgb -> depth, we should adjust this later to publish only panda_EE -> rgb_camera_link.
+3. Check TF Tree
+Generate TF tree PDF:
+ros2 run tf2_tools view_frames
+Check direct TF availability:
+ros2 run tf2_ros tf2_echo panda_link0 depth_camera_link
+Or whatever your cloud header says:
+ros2 run tf2_ros tf2_echo panda_link0 <cloud_header_frame_id>
+You need a valid path like:
+panda_link0 -> ... -> panda_EE -> rgb_camera_link -> depth_camera_link
+4. Run Stitcher
+source install/setup.bash
+ros2 launch rnm_mapping cloud_stitcher.launch.py use_sim_time:=false
+Move the robot around the skeleton at settled poses.
+Save scan:
+ros2 service call /save_scan std_srvs/srv/Trigger {}
+Default output from your YAML:
+/workspaces/RNM/rnm-workspace-main/stitched_cloud.ply
+5. Register STL Model To Scan
+ros2 run rnm_mapping register_stl_to_scan \
+  --scan /workspaces/RNM/rnm-workspace-main/stitched_cloud.ply \
+  --model /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl \
+  --output-dir /workspaces/RNM/rnm-workspace-main/registration_output
+Inspect:
+registration_output/registration_overlay.ply
+6. Locate And Publish Target
+ros2 run rnm_mapping locate_stl_target \
+  --publish-duration-sec 30
+Publishes:
+/target_point  geometry_msgs/msg/PointStamped
+/target_pose   geometry_msgs/msg/PoseStamped
+Check target:
+ros2 topic echo --once /target_point
+ros2 topic echo --once /target_pose
+7. Trajectory Planner
+Your trajectory node should subscribe to:
+/target_pose
+Then plan and execute.
+The key sanity check before stitching is always:
+ros2 run tf2_ros tf2_echo panda_link0 $(ros2 topic echo --once /k4a/points2 --field header.frame_id)
+If that TF is wrong, stitching and target localization will be wrong downstream.

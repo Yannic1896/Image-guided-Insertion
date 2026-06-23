@@ -1,0 +1,51 @@
+cloud_stitcher:
+  ros__parameters:
+    cloud_topic: /k4a/points2
+    stitched_cloud_topic: /stitched_cloud
+    target_frame: panda_link0
+    output_path: /workspaces/RNM/rnm-workspace-main/stitched_cloud.ply
+
+    # Accept clouds only after the camera pose has stayed within these limits.
+    # false accepts multiple clouds at each settled pose for depth-noise averaging.
+    capture_once_per_settled_pose: true
+    max_clouds_per_settled_pose: 1
+    settled_time_sec: 1.0
+    settled_translation_m: 0.001
+    settled_rotation_rad: 0.005
+
+    # Downsample incoming clouds first, then the accumulated result.
+    input_voxel_size_m: 0.01
+    accumulated_voxel_size_m: 0.01
+    global_downsample_every_n_clouds: 1
+
+    # Filter in the cloud's source frame before transforming into the robot base.
+    # Depth is the source-frame z coordinate; 0.0 disables a limit.
+    min_depth_m: 0.25
+    max_depth_m: 0.9
+    max_range_m: 0.0
+
+    # Publish/save only accumulated voxels supported by at least this many
+    # accepted clouds. Use 1 to keep thin one-view surfaces; try 2 for denoising.
+    min_accumulated_observations: 2
+
+    # Optional local density filters. Radius 0.0 disables the filter.
+    input_outlier_radius_m: 0.025
+    input_outlier_min_neighbors: 5
+    output_outlier_radius_m: 0.035
+    output_outlier_min_neighbors: 5
+
+    # Optional cloud-level gate. Keep this at 0.0 unless a clearly bad view is
+    # being merged; higher values can reject useful new sides of the object.
+    min_cloud_overlap_ratio: 0.15
+    overlap_distance_m: 0.035
+    overlap_min_accumulated_points: 1000
+    overlap_max_sample_points: 8000
+
+    # Leave empty to disable workspace cropping.
+    crop_min: []
+    crop_max: []
+
+    tf_timeout_sec: 0.0
+    publish_after_accept: true
+    log_accepted_transforms: true
+    reset_on_time_jump: true
