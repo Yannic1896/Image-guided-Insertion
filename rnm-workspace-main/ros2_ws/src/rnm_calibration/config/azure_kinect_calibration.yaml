@@ -1,0 +1,46 @@
+azure_kinect_calibrator:
+  ros__parameters:
+    # Edit these after choosing the Azure Kinect ROS 2 driver.
+    rgb_image_topic: /k4a/rgb/image_raw
+    # Prefer the IR image for depth-camera calibration when the driver publishes it.
+    # If IR is unavailable, this can point to a depth image topic instead.
+    depth_calibration_image_topic: /k4a/ir/image_raw
+
+    # Choose "checkerboard" or "charuco".
+    target_type: checkerboard
+
+    # Checkerboard values are inner-corner counts, not square counts.
+    checkerboard_columns: 8
+    checkerboard_rows: 5
+    checkerboard_square_size_m: 0.04
+
+    # Used only when target_type is "charuco".
+    charuco_squares_x: 7
+    charuco_squares_y: 5
+    charuco_square_size_m: 0.04
+    charuco_marker_size_m: 0.03
+    charuco_dictionary: DICT_4X4_50
+    charuco_min_corners: 8
+
+    sample_count: 25
+    min_sample_interval_s: 1.0
+    min_common_points: 8
+    sync_queue_size: 10
+    sync_slop_s: 0.1
+
+    calibration_file: /workspaces/RNM/rnm-workspace-main/ros2_ws/src/rnm_calibration/config/calib.yaml
+    rgb_camera_name: azure_kinect_rgb
+    depth_camera_name: azure_kinect_depth
+    rgb_frame_id: rgb_camera_optical_frame
+    depth_frame_id: depth_camera_optical_frame
+    shutdown_on_complete: true
+
+azure_kinect_calibration_publisher:
+  ros__parameters:
+    calibration_file: /workspaces/RNM/rnm-workspace-main/ros2_ws/src/rnm_calibration/config/calib.yaml
+    rgb_camera_info_topic: /rgb/camera_info
+    depth_camera_info_topic: /depth/camera_info
+    camera_info_publish_rate_hz: 1.0
+    publish_tf: true
+    tf_parent_frame_id: ""
+    tf_child_frame_id: ""
