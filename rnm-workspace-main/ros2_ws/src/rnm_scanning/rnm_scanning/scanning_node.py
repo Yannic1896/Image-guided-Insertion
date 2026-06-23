@@ -24,6 +24,14 @@ class ScanningNode(Node):
         self.declare_parameter('z_min', 0.40)
         self.declare_parameter('z_max', 0.70)
 
+        self.declare_parameter('center_x', 0.2)
+        self.declare_parameter('center_y', 0.0)
+        self.declare_parameter('center_z', 0.6)
+
+        self.declare_parameter('roll_deg', 138.8)
+        self.declare_parameter('pitch_deg', 42.8)
+        self.declare_parameter('yaw_deg', -104.8)
+
         self.scanning_mode = self.get_parameter('scanning_mode').value
         self.max_samples = self.get_parameter('max_samples').value
         self.x_bounds = (
@@ -52,6 +60,7 @@ class ScanningNode(Node):
         self.chessboard_visible = False
         self.trajectory_finished = False 
         self.latest_fk_pose = None
+        self.startPoseSend= False
         self.sample_count = 0
         self.model_reg_index = 0
 
@@ -144,20 +153,30 @@ class ScanningNode(Node):
         target_msg.header.frame_id = 'panda_link0'
 
         if self.scanning_mode == 'hand_eye':
-            x = random.uniform(*self.x_bounds)
-            y = random.uniform(*self.y_bounds)
-            z = random.uniform(*self.z_bounds)
-            max_tweak = math.radians(5.0)
-            roll = math.radians(180.0) + random.uniform(-max_tweak, max_tweak)
-            pitch = random.uniform(-max_tweak, max_tweak)
-            yaw = random.uniform(-max_tweak, max_tweak)
-            self.get_logger().info(
-                f"Moving to hand-eye pose: XYZ,RYP=[{x:.3f}, {y:.3f}, {z:.3f}, {roll:.3f}, {pitch:.3f}, {yaw:.3f}]"
-            )
-            target_msg.pose.position.x = x
-            target_msg.pose.position.y = y
-            target_msg.pose.position.z = z
-            target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
+
+            if not self.startPoseSend:
+                x = self.get_parameter('center_x').value
+                y = self.get_parameter('center_y').value
+                z = self.get_parameter('center_z').value
+                roll = math.radians(self.get_parameter('roll_deg').value)
+                pitch = math.radians(self.get_parameter('pitch_deg').value)
+                yaw = math.radians(self.get_parameter('yaw_deg').value)
+                self.startPoseSend= True
+            else:
+                x = random.uniform(*self.x_bounds)
+                y = random.uniform(*self.y_bounds)
+                z = random.uniform(*self.z_bounds)
+                max_tweak = math.radians(5.0)
+                roll = math.radians(180.0) + random.uniform(-max_tweak, max_tweak)
+                pitch = random.uniform(-max_tweak, max_tweak)
+                yaw = random.uniform(-max_tweak, max_tweak)
+                self.get_logger().info(
+                    f"Moving to hand-eye pose: XYZ,RYP=[{x:.3f}, {y:.3f}, {z:.3f}, {roll:.3f}, {pitch:.3f}, {yaw:.3f}]"
+                )
+                target_msg.pose.position.x = x
+                target_msg.pose.position.y = y
+                target_msg.pose.position.z = z
+                target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
 
         elif self.scanning_mode == 'model_registration':
             pose = self.model_reg_poses[self.model_reg_index]
