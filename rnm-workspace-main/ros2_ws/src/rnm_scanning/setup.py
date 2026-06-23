@@ -2,7 +2,7 @@ from glob import glob
 
 from setuptools import find_packages, setup
 
-package_name = "rnm_sample"
+package_name = "rnm_scanning"
 
 setup(
     name=package_name,
@@ -19,14 +19,11 @@ setup(
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="TODO",
-    maintainer_email="todo@todo.todo",
-    description="Sample ROS 2 Python package template for RNM.",
-    license="TODO: License declaration",
+    description="Scanning node to sync images with robot motion.",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "talker = rnm_sample.talker:main",
-            "listener = rnm_sample.listener:main",
+            "scanning_node = rnm_scanning.scanning_node:main",
         ],
     },
 )

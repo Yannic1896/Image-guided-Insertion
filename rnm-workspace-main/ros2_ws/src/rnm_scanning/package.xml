@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <package format="3">
-  <name>rnm_sample</name>
+  <name>rnm_scanning</name>
   <version>0.0.0</version>
   <description>Sample ROS 2 Python package template for RNM.</description>
   <maintainer email="todo@todo.todo">TODO</maintainer>
