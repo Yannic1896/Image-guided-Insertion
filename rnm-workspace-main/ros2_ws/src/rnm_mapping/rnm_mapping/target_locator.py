@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 from typing import Optional
 
 from geometry_msgs.msg import PointStamped
@@ -17,6 +18,15 @@ from rclpy.qos import ReliabilityPolicy
 from scipy import ndimage
 from scipy.spatial import cKDTree
 import trimesh
+
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from rnm_mapping.geometry_utils import sphere_points
+from rnm_mapping.geometry_utils import transform_point_homogeneous
+from rnm_mapping.geometry_utils import vector_string
+from rnm_mapping.mesh_io import load_ply_points
+from rnm_mapping.mesh_io import write_ply
 
 
 def main(args=None) -> None:
@@ -34,8 +44,8 @@ def main(args=None) -> None:
     )
 
     model_to_scan = np.loadtxt(parsed.model_to_scan_transform)
-    target_scan = _transform_point(target.center_model, model_to_scan)
-    scan_points, scan_colors = _load_scan(parsed.scan)
+    target_scan = transform_point_homogeneous(target.center_model, model_to_scan)
+    scan_points, scan_colors = load_ply_points(parsed.scan, default_color=None)
     validation = _validate_target(
         target_scan,
         scan_points,
@@ -57,10 +67,10 @@ def main(args=None) -> None:
     print("Target localization complete.")
     print(
         "Model target center [m]: "
-        f"{_vector_string(target.center_model)}, "
+        f"{vector_string(target.center_model)}, "
         f"radius ~= {target.radius_m:.4f} m"
     )
-    print(f"Scan/base target center [m]: {_vector_string(target_scan)}")
+    print(f"Scan/base target center [m]: {vector_string(target_scan)}")
     print(
         "Validation: "
         f"inside_bbox={validation.inside_bbox}, "
@@ -231,17 +241,6 @@ def _detect_spherical_component(
     return candidates[0]
 
 
-def _load_scan(path: Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
-    loaded = trimesh.load(path, process=False)
-    points = np.asarray(loaded.vertices, dtype=np.float64)
-    colors = None
-    visual = getattr(loaded, "visual", None)
-    vertex_colors = getattr(visual, "vertex_colors", None)
-    if vertex_colors is not None and len(vertex_colors) == len(points):
-        colors = np.asarray(vertex_colors[:, :3], dtype=np.uint8)
-    return points, colors
-
-
 def _validate_target(
     target_scan: np.ndarray,
     scan_points: np.ndarray,
@@ -272,10 +271,6 @@ def _validate_target(
     )
 
 
-def _transform_point(point: np.ndarray, transform: np.ndarray) -> np.ndarray:
-    return transform[:3, :3] @ point + transform[:3, 3]
-
-
 def _write_target_report(
     path: Path,
     target: TargetCandidate,
@@ -284,18 +279,18 @@ def _write_target_report(
 ) -> None:
     with path.open("w", encoding="utf-8") as file:
         file.write("# Target localized from registered STL model\n")
-        file.write(f"model_center_m: {_vector_string(target.center_model)}\n")
-        file.write(f"scan_center_m: {_vector_string(target_scan)}\n")
+        file.write(f"model_center_m: {vector_string(target.center_model)}\n")
+        file.write(f"scan_center_m: {vector_string(target_scan)}\n")
         file.write(f"estimated_radius_m: {target.radius_m:.6f}\n")
-        file.write(f"model_component_extents_m: {_vector_string(target.extents_m)}\n")
+        file.write(f"model_component_extents_m: {vector_string(target.extents_m)}\n")
         file.write(f"model_component_compactness: {target.compactness:.6f}\n")
         file.write(f"model_component_occupied_voxels: {target.occupied_voxels}\n")
         file.write(f"inside_scan_bbox_with_margin: {validation.inside_bbox}\n")
         file.write(f"nearest_scan_distance_m: {validation.nearest_distance_m:.6f}\n")
         file.write(f"support_radius_m: {validation.support_radius_m:.6f}\n")
         file.write(f"support_points: {validation.support_points}\n")
-        file.write(f"scan_bbox_min_m: {_vector_string(validation.bbox_min)}\n")
-        file.write(f"scan_bbox_max_m: {_vector_string(validation.bbox_max)}\n")
+        file.write(f"scan_bbox_min_m: {vector_string(validation.bbox_min)}\n")
+        file.write(f"scan_bbox_max_m: {vector_string(validation.bbox_max)}\n")
 
 
 def _write_target_overlay(
@@ -305,11 +300,16 @@ def _write_target_overlay(
     target_center: np.ndarray,
     marker_radius: float,
 ) -> None:
-    marker_points = _sphere_points(target_center, marker_radius)
+    marker_points = sphere_points(
+        target_center,
+        marker_radius,
+        phi_count=24,
+        theta_count=48,
+    )
     if scan_colors is None:
         scan_colors = np.full((len(scan_points), 3), (180, 180, 180), dtype=np.uint8)
     marker_colors = np.full((len(marker_points), 3), (40, 255, 80), dtype=np.uint8)
-    _write_ply(
+    write_ply(
         path,
         np.vstack((scan_points, marker_points)),
         np.vstack((scan_colors, marker_colors)),
@@ -363,46 +363,6 @@ def _publish_target(target_scan: np.ndarray, parsed: argparse.Namespace) -> None
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-
-def _sphere_points(center: np.ndarray, radius: float) -> np.ndarray:
-    phi_values = np.linspace(0.0, np.pi, 24)
-    theta_values = np.linspace(0.0, 2.0 * np.pi, 48, endpoint=False)
-    points = []
-    for phi in phi_values:
-        for theta in theta_values:
-            points.append(
-                [
-                    center[0] + radius * np.sin(phi) * np.cos(theta),
-                    center[1] + radius * np.sin(phi) * np.sin(theta),
-                    center[2] + radius * np.cos(phi),
-                ]
-            )
-    return np.asarray(points, dtype=np.float64)
-
-
-def _write_ply(path: Path, points: np.ndarray, colors: np.ndarray) -> None:
-    with path.open("w", encoding="utf-8") as file:
-        file.write("ply\n")
-        file.write("format ascii 1.0\n")
-        file.write(f"element vertex {len(points)}\n")
-        file.write("property float x\n")
-        file.write("property float y\n")
-        file.write("property float z\n")
-        file.write("property uchar red\n")
-        file.write("property uchar green\n")
-        file.write("property uchar blue\n")
-        file.write("end_header\n")
-        for point, color in zip(points, colors):
-            file.write(
-                f"{point[0]:.6f} {point[1]:.6f} {point[2]:.6f} "
-                f"{int(color[0])} {int(color[1])} {int(color[2])}\n"
-            )
-
-
-def _vector_string(vector: np.ndarray) -> str:
-    return "[" + ", ".join(f"{value:.6f}" for value in vector) + "]"
-
 
 if __name__ == "__main__":
     main()

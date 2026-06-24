@@ -16,6 +16,9 @@ ros2 run rnm_mapping locate_stl_target \
   --target-pose-topic /target_pose \
   --publish-duration-sec 30
 
+ros2 run rnm_mapping find_needle_entry \
+  --publish-duration-sec 30
+
 1. Start Real Robot / Camera
 Start your robot bringup and Azure driver as usual.
 Check topics:
@@ -69,10 +72,24 @@ Publishes:
 Check target:
 ros2 topic echo --once /target_point
 ros2 topic echo --once /target_pose
-7. Trajectory Planner
+7. Find And Publish Needle Entry
+ros2 run rnm_mapping find_needle_entry \
+  --publish-duration-sec 30
+Edit defaults in:
+ros2_ws/src/rnm_mapping/config/needle_entry_planner.yaml
+Publishes:
+/needle_entry_point  geometry_msgs/msg/PointStamped
+/needle_entry_pose   geometry_msgs/msg/PoseStamped
+Visual output:
+target_output/target_entry_overlay.ply
+Check entry:
+ros2 topic echo --once /needle_entry_point
+ros2 topic echo --once /needle_entry_pose
+8. Trajectory Planner
 Your trajectory node should subscribe to:
 /target_pose
-Then plan and execute.
+/needle_entry_pose
+Then align the needle axis with entry -> target and execute.
 The key sanity check before stitching is always:
 ros2 run tf2_ros tf2_echo panda_link0 $(ros2 topic echo --once /k4a/points2 --field header.frame_id)
 If that TF is wrong, stitching and target localization will be wrong downstream.

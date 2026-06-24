@@ -1,13 +1,13 @@
 # Target localized from registered STL model
 model_center_m: [-0.003354, -0.021453, 0.021913]
-scan_center_m: [0.235743, -0.240640, 0.074931]
+scan_center_m: [0.235670, -0.240813, 0.074981]
 estimated_radius_m: 0.012000
 model_component_extents_m: [0.016000, 0.016000, 0.024000]
 model_component_compactness: 0.666667
 model_component_occupied_voxels: 30
 inside_scan_bbox_with_margin: True
-nearest_scan_distance_m: 0.004273
+nearest_scan_distance_m: 0.004086
 support_radius_m: 0.050000
-support_points: 214
-scan_bbox_min_m: [-0.318905, -0.711606, -0.166128]
+support_points: 212
+scan_bbox_min_m: [-0.318905, -0.704112, -0.166128]
 scan_bbox_max_m: [0.671848, 0.123306, 0.186667]

@@ -5,26 +5,44 @@ from __future__ import annotations
 import argparse
 from itertools import permutations
 from pathlib import Path
+import sys
 from typing import Optional
 
 import numpy as np
 from scipy.spatial import cKDTree
 import trimesh
 
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from rnm_mapping.geometry_utils import limit_points
+from rnm_mapping.geometry_utils import matrix_from_transform
+from rnm_mapping.geometry_utils import transform_points_homogeneous
+from rnm_mapping.mesh_io import load_ply_points
+from rnm_mapping.mesh_io import write_ply
+from rnm_mapping.point_cloud_utils import crop_points
+from rnm_mapping.point_cloud_utils import filter_radius_outliers
+from rnm_mapping.point_cloud_utils import voxel_downsample
+
 
 def main(args=None) -> None:
     parser = _make_parser()
     parsed = parser.parse_args(args=args)
 
-    scan_points, scan_colors = _load_point_cloud(parsed.scan)
-    scan_points, scan_colors = _crop_points(scan_points, scan_colors, parsed)
-    scan_points, scan_colors = _radius_filter(
+    scan_points, scan_colors = load_ply_points(parsed.scan, default_color=None)
+    scan_points, scan_colors = crop_points(
+        scan_points,
+        scan_colors,
+        _optional_vector(parsed.crop_min),
+        _optional_vector(parsed.crop_max),
+    )
+    scan_points, scan_colors = filter_radius_outliers(
         scan_points,
         scan_colors,
         parsed.scan_outlier_radius,
         parsed.scan_outlier_min_neighbors,
     )
-    scan_points, scan_colors = _voxel_downsample(
+    scan_points, scan_colors, _ = voxel_downsample(
         scan_points,
         parsed.scan_voxel_size,
         scan_colors,
@@ -33,7 +51,7 @@ def main(args=None) -> None:
     model_mesh = trimesh.load_mesh(parsed.model, process=False)
     model_points = _sample_model(model_mesh, parsed.model_sample_count)
     model_points = model_points * parsed.model_scale
-    model_points, _ = _voxel_downsample(
+    model_points, _, _ = voxel_downsample(
         model_points,
         parsed.model_voxel_size,
         None,
@@ -61,9 +79,9 @@ def main(args=None) -> None:
         trim_fraction=parsed.icp_trim_fraction,
     )
 
-    scan_to_model = _matrix_from_transform(icp.rotation, icp.translation)
+    scan_to_model = matrix_from_transform(icp.rotation, icp.translation)
     model_to_scan = np.linalg.inv(scan_to_model)
-    aligned_model_points = _transform_points_homogeneous(
+    aligned_model_points = transform_points_homogeneous(
         model_points,
         model_to_scan,
     )
@@ -72,13 +90,13 @@ def main(args=None) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     np.savetxt(output_dir / "model_to_scan_transform.txt", model_to_scan)
     np.savetxt(output_dir / "scan_to_model_transform.txt", scan_to_model)
-    _write_ply(output_dir / "scan_for_registration.ply", scan_points, scan_colors)
-    _write_ply(
+    write_ply(output_dir / "scan_for_registration.ply", scan_points, scan_colors)
+    write_ply(
         output_dir / "registered_model_points.ply",
         aligned_model_points,
         np.full((len(aligned_model_points), 3), (255, 80, 40), dtype=np.uint8),
     )
-    _write_ply(
+    write_ply(
         output_dir / "registration_overlay.ply",
         np.vstack((scan_points, aligned_model_points)),
         np.vstack(
@@ -156,25 +174,6 @@ def _make_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_point_cloud(path: Path) -> tuple[np.ndarray, Optional[np.ndarray]]:
-    loaded = trimesh.load(path, process=False)
-    if isinstance(loaded, trimesh.Scene):
-        loaded = trimesh.util.concatenate(tuple(loaded.geometry.values()))
-
-    points = np.asarray(loaded.vertices, dtype=np.float64)
-    colors = None
-    visual = getattr(loaded, "visual", None)
-    vertex_colors = getattr(visual, "vertex_colors", None)
-    if vertex_colors is not None and len(vertex_colors) == len(points):
-        colors = np.asarray(vertex_colors[:, :3], dtype=np.uint8)
-
-    finite = np.all(np.isfinite(points), axis=1)
-    points = points[finite]
-    if colors is not None:
-        colors = colors[finite]
-    return points, colors
-
-
 def _sample_model(mesh: trimesh.Trimesh, count: int) -> np.ndarray:
     if count <= 0:
         return np.asarray(mesh.vertices, dtype=np.float64)
@@ -182,18 +181,10 @@ def _sample_model(mesh: trimesh.Trimesh, count: int) -> np.ndarray:
     return np.asarray(points, dtype=np.float64)
 
 
-def _crop_points(
-    points: np.ndarray,
-    colors: Optional[np.ndarray],
-    parsed: argparse.Namespace,
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
-    mask = np.ones(len(points), dtype=bool)
-    if parsed.crop_min is not None:
-        mask &= np.all(points >= np.asarray(parsed.crop_min), axis=1)
-    if parsed.crop_max is not None:
-        mask &= np.all(points <= np.asarray(parsed.crop_max), axis=1)
-    cropped_colors = None if colors is None else colors[mask]
-    return points[mask], cropped_colors
+def _optional_vector(values: Optional[list[float]]) -> Optional[np.ndarray]:
+    if values is None:
+        return None
+    return np.asarray(values, dtype=np.float64)
 
 
 def _best_pca_initial_transform(
@@ -202,8 +193,8 @@ def _best_pca_initial_transform(
     sample_count: int,
     trim_fraction: float,
 ) -> RegistrationResult:
-    source_sample = _limit_points(source_points, sample_count)
-    target_sample = _limit_points(target_points, sample_count)
+    source_sample = limit_points(source_points, sample_count)
+    target_sample = limit_points(target_points, sample_count)
     source_centroid, source_axes = _pca_frame(source_sample)
     target_centroid, target_axes = _pca_frame(target_sample)
     target_tree = cKDTree(target_sample)
@@ -333,52 +324,6 @@ def _proper_sign_flips() -> list[tuple[int, int, int]]:
     return flips
 
 
-def _voxel_downsample(
-    points: np.ndarray,
-    voxel_size: float,
-    colors: Optional[np.ndarray],
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
-    if points.size == 0 or voxel_size <= 0.0:
-        return points, colors
-
-    voxel_indices = np.floor(points / voxel_size).astype(np.int64)
-    _, inverse = np.unique(voxel_indices, axis=0, return_inverse=True)
-    counts = np.bincount(inverse)
-    sums = np.zeros((len(counts), 3), dtype=np.float64)
-    np.add.at(sums, inverse, points)
-    downsampled_points = sums / counts[:, None]
-
-    if colors is None:
-        return downsampled_points, None
-
-    color_sums = np.zeros((len(counts), 3), dtype=np.float64)
-    np.add.at(color_sums, inverse, colors.astype(np.float64))
-    downsampled_colors = np.rint(color_sums / counts[:, None]).astype(np.uint8)
-    return downsampled_points, downsampled_colors
-
-
-def _radius_filter(
-    points: np.ndarray,
-    colors: Optional[np.ndarray],
-    radius: float,
-    min_neighbors: int,
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
-    if points.size == 0 or radius <= 0.0 or min_neighbors <= 0:
-        return points, colors
-    tree = cKDTree(points)
-    counts = tree.query_ball_point(points, radius, return_length=True)
-    mask = counts >= min_neighbors + 1
-    filtered_colors = None if colors is None else colors[mask]
-    return points[mask], filtered_colors
-
-
-def _limit_points(points: np.ndarray, max_points: int) -> np.ndarray:
-    if max_points <= 0 or len(points) <= max_points:
-        return points
-    indices = np.linspace(0, len(points) - 1, max_points, dtype=np.int64)
-    return points[indices]
-
-
 def _trimmed_rmse(distances: np.ndarray, trim_fraction: float) -> float:
     trim_fraction = min(1.0, max(0.01, trim_fraction))
     keep_count = max(1, int(len(distances) * trim_fraction))
@@ -386,41 +331,10 @@ def _trimmed_rmse(distances: np.ndarray, trim_fraction: float) -> float:
     return float(np.sqrt(np.mean(kept * kept)))
 
 
-def _matrix_from_transform(rotation: np.ndarray, translation: np.ndarray) -> np.ndarray:
-    matrix = np.eye(4, dtype=np.float64)
-    matrix[:3, :3] = rotation
-    matrix[:3, 3] = translation
-    return matrix
-
-
-def _transform_points_homogeneous(points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-    return points @ matrix[:3, :3].T + matrix[:3, 3]
-
-
 def _default_colors(points: np.ndarray, colors: Optional[np.ndarray]) -> np.ndarray:
     if colors is not None:
         return colors
     return np.full((len(points), 3), (210, 210, 210), dtype=np.uint8)
-
-
-def _write_ply(path: Path, points: np.ndarray, colors: Optional[np.ndarray]) -> None:
-    colors = _default_colors(points, colors)
-    with path.open("w", encoding="utf-8") as file:
-        file.write("ply\n")
-        file.write("format ascii 1.0\n")
-        file.write(f"element vertex {len(points)}\n")
-        file.write("property float x\n")
-        file.write("property float y\n")
-        file.write("property float z\n")
-        file.write("property uchar red\n")
-        file.write("property uchar green\n")
-        file.write("property uchar blue\n")
-        file.write("end_header\n")
-        for point, color in zip(points, colors):
-            file.write(
-                f"{point[0]:.6f} {point[1]:.6f} {point[2]:.6f} "
-                f"{int(color[0])} {int(color[1])} {int(color[2])}\n"
-            )
 
 
 def _extent_string(points: np.ndarray) -> str:

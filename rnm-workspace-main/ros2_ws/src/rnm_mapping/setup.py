@@ -27,6 +27,7 @@ setup(
             "cloud_stitcher = rnm_mapping.cloud_stitcher:main",
             "register_stl_to_scan = rnm_mapping.model_registration:main",
             "locate_stl_target = rnm_mapping.target_locator:main",
+            "find_needle_entry = rnm_mapping.needle_entry_planner:main",
         ],
     },
 )
