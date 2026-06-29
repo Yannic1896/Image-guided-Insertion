@@ -57,10 +57,3 @@ needle_entry_planner:
     overlay_model_sample_count: 120000
     write_mesh_overlay: true
     write_target_entry_overlay: true
-
-    publish: false
-    target_frame: panda_link0
-    entry_point_topic: /needle_entry_point
-    entry_pose_topic: /needle_entry_pose
-    publish_duration_sec: 5.0
-    publish_rate_hz: 5.0

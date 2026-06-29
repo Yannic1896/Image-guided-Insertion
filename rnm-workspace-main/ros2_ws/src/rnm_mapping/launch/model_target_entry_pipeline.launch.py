@@ -1,4 +1,4 @@
-"""Launch model registration, target localization, then needle entry planning."""
+"""Launch registration, target localization, entry planning, then PoseArray publishing."""
 
 from __future__ import annotations
 
@@ -57,10 +57,14 @@ TARGET_LOCATOR_ARGS = (
     "min_support_points",
     "marker_radius",
     "random_seed",
-    "publish",
+)
+
+POSE_ARRAY_PUBLISHER_ARGS = (
+    "target_location",
+    "entry_location",
+    "entry_candidate_index",
+    "pose_array_topic",
     "target_frame",
-    "target_point_topic",
-    "target_pose_topic",
     "publish_duration_sec",
     "publish_rate_hz",
 )
@@ -118,6 +122,16 @@ def _build_stage_command(
     return command
 
 
+def _build_target_command(config: dict[str, Any]) -> list[str]:
+    command = _build_stage_command(
+        "locate_stl_target",
+        config,
+        TARGET_LOCATOR_ARGS,
+    )
+    command.append("--no-publish")
+    return command
+
+
 def _build_entry_command(config: dict[str, Any], default_config: str) -> list[str]:
     command = ["ros2", "run", "rnm_mapping", "find_needle_entry"]
     command.extend(["--config", str(config.get("config") or default_config)])
@@ -126,6 +140,15 @@ def _build_entry_command(config: dict[str, Any], default_config: str) -> list[st
     if not isinstance(extra_args, list):
         raise RuntimeError("needle_entry_planner.extra_args must be a list")
     command.extend(str(arg) for arg in extra_args)
+    command.append("--no-publish")
+    return command
+
+
+def _build_pose_array_command(config: dict[str, Any]) -> list[str]:
+    command = ["ros2", "run", "rnm_mapping", "publish_target_entry_pose_array"]
+    for key in POSE_ARRAY_PUBLISHER_ARGS:
+        if key in config:
+            _append_arg(command, key, config[key])
     return command
 
 
@@ -155,16 +178,53 @@ def _stage_success_handler(next_action: ExecuteProcess, stage_name: str):
     return _handler
 
 
+def _entry_stage_handler(next_action: ExecuteProcess | None):
+    def _handler(event: ProcessExited, _context: LaunchContext):
+        if event.returncode != 0:
+            return [
+                LogInfo(
+                    msg=(
+                        "[model_target_entry_pipeline] needle entry planning failed "
+                        f"with return code {event.returncode}."
+                    )
+                ),
+                Shutdown(reason="needle entry planning failed"),
+            ]
+
+        if next_action is None:
+            return [
+                LogInfo(
+                    msg=(
+                        "[model_target_entry_pipeline] all compute stages complete; "
+                        "PoseArray publishing is disabled."
+                    )
+                ),
+                Shutdown(reason="model target entry pipeline complete"),
+            ]
+
+        return [
+            LogInfo(
+                msg=(
+                    "[model_target_entry_pipeline] needle entry planning complete; "
+                    "publishing combined PoseArray."
+                )
+            ),
+            next_action,
+        ]
+
+    return _handler
+
+
 def _final_stage_handler(event: ProcessExited, _context: LaunchContext):
     if event.returncode != 0:
         return [
             LogInfo(
                 msg=(
-                    "[model_target_entry_pipeline] needle entry planning failed "
+                    "[model_target_entry_pipeline] PoseArray publishing failed "
                     f"with return code {event.returncode}."
                 )
             ),
-            Shutdown(reason="needle entry planning failed"),
+            Shutdown(reason="PoseArray publishing failed"),
         ]
 
     return [
@@ -187,11 +247,7 @@ def _launch_pipeline(context: LaunchContext):
         output="screen",
     )
     target_locator = ExecuteProcess(
-        cmd=_build_stage_command(
-            "locate_stl_target",
-            _section(config, "target_locator"),
-            TARGET_LOCATOR_ARGS,
-        ),
+        cmd=_build_target_command(_section(config, "target_locator")),
         output="screen",
     )
     entry_planner = ExecuteProcess(
@@ -201,8 +257,15 @@ def _launch_pipeline(context: LaunchContext):
         ),
         output="screen",
     )
+    pose_array_config = _section(config, "pose_array_publisher")
+    pose_array_publisher = None
+    if bool(pose_array_config.get("publish", False)):
+        pose_array_publisher = ExecuteProcess(
+            cmd=_build_pose_array_command(pose_array_config),
+            output="screen",
+        )
 
-    return [
+    actions = [
         LogInfo(
             msg=(
                 "[model_target_entry_pipeline] starting model registration "
@@ -225,10 +288,20 @@ def _launch_pipeline(context: LaunchContext):
         RegisterEventHandler(
             OnProcessExit(
                 target_action=entry_planner,
-                on_exit=_final_stage_handler,
+                on_exit=_entry_stage_handler(pose_array_publisher),
             )
         ),
     ]
+    if pose_array_publisher is not None:
+        actions.append(
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=pose_array_publisher,
+                    on_exit=_final_stage_handler,
+                )
+            )
+        )
+    return actions
 
 
 def generate_launch_description() -> LaunchDescription:

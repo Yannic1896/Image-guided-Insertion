@@ -2,6 +2,7 @@
 # 1. Register the STL model to the stitched scan.
 # 2. Locate the target in scan coordinates.
 # 3. Plan needle entry candidates.
+# 4. Optionally publish one PoseArray: poses[0]=entry, poses[1]=target.
 #
 # Run with:
 # ros2 launch rnm_mapping model_target_entry_pipeline.launch.py
@@ -47,17 +48,23 @@ target_locator:
   marker_radius: 0.015
   random_seed: 7
 
-  publish: true
-  target_frame: panda_link0
-  target_point_topic: /target_point
-  target_pose_topic: /target_pose
-  publish_duration_sec: 5.0
-  publish_rate_hz: 5.0
-
 needle_entry_planner:
   # Detailed needle-entry tuning stays in this file.
   config: /workspaces/RNM/rnm-workspace-main/ros2_ws/src/rnm_mapping/config/needle_entry_planner.yaml
 
   # Optional final overrides, passed after --config. Example:
-  # extra_args: [--publish-duration-sec, 30]
+  # extra_args: [--max-entry-candidates, 20]
   extra_args: []
+
+pose_array_publisher:
+  publish: true
+  target_location: /workspaces/RNM/rnm-workspace-main/target_output/target_location.txt
+  entry_location: /workspaces/RNM/rnm-workspace-main/entry_point_output/needle_entry_point.txt
+
+  # Candidate 0 is the chosen entry point written in the ranked candidates block.
+  entry_candidate_index: 0
+
+  pose_array_topic: /needle_entry_target_poses
+  target_frame: panda_link0
+  publish_duration_sec: 30.0
+  publish_rate_hz: 5.0
