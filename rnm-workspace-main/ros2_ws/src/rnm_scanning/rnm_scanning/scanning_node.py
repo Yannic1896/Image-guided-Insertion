@@ -1,12 +1,15 @@
 """Synchronizes robot movement & image acquisition."""
 
 import math
+import os
 import random
 
 import rclpy
+import yaml
+from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped, Quaternion
 from rclpy.node import Node
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64MultiArray
 
 
 class ScanningNode(Node):
@@ -32,6 +35,11 @@ class ScanningNode(Node):
         self.declare_parameter('pitch_deg', 42.8)
         self.declare_parameter('yaw_deg', -104.8)
 
+        _default_poses_file = os.path.join(
+            get_package_share_directory('rnm_scanning'), 'config', 'stitching poses.yaml'
+        )
+        self.declare_parameter('stitching_poses_file', _default_poses_file)
+
         self.scanning_mode = self.get_parameter('scanning_mode').value
         self.max_samples = self.get_parameter('max_samples').value
         self.x_bounds = (
@@ -47,15 +55,8 @@ class ScanningNode(Node):
             self.get_parameter('z_max').value,
         )
 
-        # [x, y, z, roll_deg, pitch_deg, yaw_deg]
-        self.model_reg_poses = [
-            [0.40,  0.00, 0.50, 180.0,  0.0,   0.0],
-            [0.45,  0.15, 0.50, 180.0,  0.0,  30.0],
-            [0.45, -0.15, 0.50, 180.0,  0.0, -30.0],
-            [0.35,  0.10, 0.55, 175.0,  5.0,  15.0],
-            [0.35, -0.10, 0.55, 175.0,  5.0, -15.0],
-            [0.50,  0.00, 0.45, 180.0,  0.0,   0.0],
-        ]
+        poses_file = self.get_parameter('stitching_poses_file').value
+        self.model_reg_joints = self._load_stitching_poses(poses_file)
 
         self.chessboard_visible = False
         self.trajectory_finished = False 
@@ -77,6 +78,7 @@ class ScanningNode(Node):
 
         # Publishers
         self.target_pub = self.create_publisher(PoseStamped, '/target_pose', 10)
+        self.ik_joint_goal_pub = self.create_publisher(Float64MultiArray, '/ik_joint_goal', 10)
         self.trigger_image_pub = self.create_publisher(Bool, '/trigger_image_capture', 10)
         self.trigger_pointcloud_pub = self.create_publisher(Bool, '/trigger_pointcloud_capture', 10)
 
@@ -126,7 +128,7 @@ class ScanningNode(Node):
 
         elif self.scanning_mode == 'model_registration':
             self.get_logger().info(
-                f"Settled at scan point {self.model_reg_index + 1}/{len(self.model_reg_poses)} "
+                f"Settled at scan point {self.model_reg_index + 1}/{len(self.model_reg_joints)} "
                 f"— triggering point cloud capture."
             )
             trigger_msg = Bool()
@@ -134,7 +136,7 @@ class ScanningNode(Node):
             self.trigger_pointcloud_pub.publish(trigger_msg)
             self.model_reg_index += 1
 
-            if self.model_reg_index >= len(self.model_reg_poses):
+            if self.model_reg_index >= len(self.model_reg_joints):
                 self.get_logger().info("Scanning complete — all point clouds captured.")
                 self.loop_timer.cancel()
                 return
@@ -179,20 +181,23 @@ class ScanningNode(Node):
                 target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
 
         elif self.scanning_mode == 'model_registration':
-            pose = self.model_reg_poses[self.model_reg_index]
+            joints = self.model_reg_joints[self.model_reg_index]
             self.get_logger().info(
-                f"Moving to scan point {self.model_reg_index + 1}/{len(self.model_reg_poses)}"
+                f"Moving to scan point {self.model_reg_index + 1}/{len(self.model_reg_joints)}"
             )
-            target_msg.pose.position.x = pose[0]
-            target_msg.pose.position.y = pose[1]
-            target_msg.pose.position.z = pose[2]
-            target_msg.pose.orientation = self.euler_to_quaternion(
-                math.radians(pose[3]),
-                math.radians(pose[4]),
-                math.radians(pose[5]),
-            )
+            joint_msg = Float64MultiArray()
+            joint_msg.data = joints
+            self.ik_joint_goal_pub.publish(joint_msg)
+            return  # joint goal sent — no PoseStamped needed
 
         self.target_pub.publish(target_msg)
+
+    def _load_stitching_poses(self, path: str) -> list[list[float]]:
+        """Parse a multi-document JointState YAML and return a list of position arrays."""
+        with open(path, 'r') as f:
+            docs = [d for d in yaml.safe_load_all(f) if d and 'position' in d]
+        self.get_logger().info(f"Loaded {len(docs)} stitching poses from '{path}'")
+        return [doc['position'] for doc in docs]
 
     def euler_to_quaternion(self, roll: float, pitch: float, yaw: float) -> Quaternion:
         cy = math.cos(yaw * 0.5)
