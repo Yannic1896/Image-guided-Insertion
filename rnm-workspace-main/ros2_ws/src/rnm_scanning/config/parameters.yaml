@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     # Scanning mode: 'hand_eye' or 'model_registration'
-    scanning_mode: hand_eye
+    scanning_mode: model_registration
     max_samples: 30
 
     # Workspace bounding box for hand-eye poses [m]
