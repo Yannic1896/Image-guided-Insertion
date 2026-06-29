@@ -187,10 +187,10 @@ class ScanningNode(Node):
                 self.get_logger().info(
                     f"Moving to hand-eye pose: XYZ,RYP=[{x:.3f}, {y:.3f}, {z:.3f}, {roll:.3f}, {pitch:.3f}, {yaw:.3f}]"
                 )
-                target_msg.pose.position.x = x
-                target_msg.pose.position.y = y
-                target_msg.pose.position.z = z
-                target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
+            target_msg.pose.position.x = x
+            target_msg.pose.position.y = y
+            target_msg.pose.position.z = z
+            target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
 
         elif self.scanning_mode == 'model_registration':
             joints = self.model_reg_joints[self.model_reg_index]
@@ -200,7 +200,7 @@ class ScanningNode(Node):
             joint_msg = Float64MultiArray()
             joint_msg.data = joints
             self.ik_joint_goal_pub.publish(joint_msg)
-            return  # joint goal sent — no PoseStamped needed
+            return
 
         self.target_pub.publish(target_msg)
 
