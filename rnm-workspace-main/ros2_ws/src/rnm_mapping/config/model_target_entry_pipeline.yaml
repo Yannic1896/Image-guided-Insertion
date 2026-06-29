@@ -29,6 +29,7 @@ model_registration:
   icp_max_correspondence_distance: 0.04
   icp_min_correspondences: 300
   icp_trim_fraction: 0.75
+  random_seed: 7
 
 target_locator:
   model: /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
@@ -57,14 +58,14 @@ needle_entry_planner:
   extra_args: []
 
 pose_array_publisher:
-  publish: true
+  publish: false
   target_location: /workspaces/RNM/rnm-workspace-main/target_output/target_location.txt
   entry_location: /workspaces/RNM/rnm-workspace-main/entry_point_output/needle_entry_point.txt
 
   # Candidate 0 is the chosen entry point written in the ranked candidates block.
   entry_candidate_index: 0
 
-  pose_array_topic: /needle_entry_target_poses
+  pose_array_topic: /needle_poses
   target_frame: panda_link0
   publish_duration_sec: 30.0
   publish_rate_hz: 5.0
