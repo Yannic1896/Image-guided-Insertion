@@ -18,6 +18,7 @@ class ScanningNode(Node):
 
         self.declare_parameter('scanning_mode', 'hand_eye')  # 'hand_eye' or 'model_registration'
         self.declare_parameter('max_samples', 30)
+        self.declare_parameter('delay_between_scans', 3.0)
 
         #TODO: Test parameters 
         self.declare_parameter('x_min', 0.40)
@@ -141,11 +142,22 @@ class ScanningNode(Node):
                 self.loop_timer.cancel()
                 return
 
+        self.schedule_next_scan()
+
+    def schedule_next_scan(self):
+        delay = self.get_parameter('delay_between_scans').value
+        self.next_scan_timer = self.create_timer(delay, self._next_scan_timer_callback)
+
+    def _next_scan_timer_callback(self):
+        self.next_scan_timer.cancel()
+        self.destroy_timer(self.next_scan_timer)
+        self.next_scan_timer = None
         self.send_next_target()
 
     # ------------------------------------------------------------------
     # Motion helpers
     # ------------------------------------------------------------------
+
 
     def send_next_target(self) -> None:
         self.trajectory_finished = False
