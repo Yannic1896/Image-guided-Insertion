@@ -14,6 +14,8 @@ services:
     init: true
     tty: true
     stdin_open: true
+    ports:
+      - "8080:8080"
     volumes:
       - ..:/rnm-workspace
     environment:

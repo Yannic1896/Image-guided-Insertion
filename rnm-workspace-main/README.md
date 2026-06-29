@@ -98,13 +98,31 @@ source install/setup.bash
 
 A heavier devcontainer with `multipanda_ros2`, MuJoCo, `libfranka`, and noVNC is available under `.devcontainer/`. Open the folder in VS Code and choose **Dev Containers: Reopen in Container**. See `.devcontainer/.env.example` for network and display options.
 
+### Starting the container manually (without VS Code)
+
+Use `--service-ports` so that port 8080 (viser visualizer) is published to the host:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml run --rm --service-ports lab bash
+```
+
+> **Note:** `docker compose run` does **not** publish ports by default. Without `--service-ports`, `http://localhost:8080` will not be reachable from the host.
+
+Inside the container, build and source the workspace:
+
+```bash
+colcon build
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
+
 ### Example Franka Simulation
 
 ```bash
 ros2 launch rnm_tools rnm_panda_sim.launch.py
 ```
 
-Open the visualizer at `http://localhost:8080`.
+Open the visualizer at `http://localhost:8080` in your browser while the launch is running.
 
 Send a joint position command:
 
