@@ -28,6 +28,7 @@ from rnm_mapping.point_cloud_utils import voxel_downsample
 def main(args=None) -> None:
     parser = _make_parser()
     parsed = parser.parse_args(args=args)
+    np.random.seed(parsed.random_seed)
 
     scan_points, scan_colors = load_ply_points(parsed.scan, default_color=None)
     scan_points, scan_colors = crop_points(
@@ -171,6 +172,7 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument("--icp-max-correspondence-distance", type=float, default=0.04)
     parser.add_argument("--icp-min-correspondences", type=int, default=300)
     parser.add_argument("--icp-trim-fraction", type=float, default=0.75)
+    parser.add_argument("--random-seed", type=int, default=7)
     return parser
 
 

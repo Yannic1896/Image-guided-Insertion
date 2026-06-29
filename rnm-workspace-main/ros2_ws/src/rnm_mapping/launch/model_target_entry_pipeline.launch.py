@@ -39,6 +39,7 @@ REGISTRATION_ARGS = (
     "icp_max_correspondence_distance",
     "icp_min_correspondences",
     "icp_trim_fraction",
+    "random_seed",
 )
 
 TARGET_LOCATOR_ARGS = (
