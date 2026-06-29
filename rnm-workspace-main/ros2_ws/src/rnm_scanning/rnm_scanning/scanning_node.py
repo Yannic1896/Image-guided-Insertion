@@ -9,7 +9,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped, Quaternion
 from rclpy.node import Node
-from std_msgs.msg import Bool, Float64MultiArray
+from std_msgs.msg import Bool, Float64MultiArray, UInt64
 
 
 class ScanningNode(Node):
@@ -74,7 +74,7 @@ class ScanningNode(Node):
             Bool, '/chessboard_detected', self.detect_callback, 10
         )
         self.trajectory_status_sub = self.create_subscription(
-            Bool, '/trajectory_finished', self.trajectory_callback, 10
+            UInt64, '/trajectory_finished', self.trajectory_callback, 10
         )
 
         # Publishers
@@ -98,15 +98,17 @@ class ScanningNode(Node):
     def detect_callback(self, msg: Bool) -> None:
         self.chessboard_visible = msg.data
 
-    def trajectory_callback(self, msg: Bool) -> None:
-        self.trajectory_finished = msg.data
+    def trajectory_callback(self, msg: UInt64) -> None:
+        # Topic is only published when trajectory is completed(value= 0)
+        if msg.data == 0:
+            self.trajectory_finished = True
 
 
     def scanning_loop(self) -> None:
 
         if not self.trajectory_finished:
             return
-
+    
         if self.scanning_mode == 'hand_eye':
             if self.chessboard_visible:
                 self.get_logger().info(
