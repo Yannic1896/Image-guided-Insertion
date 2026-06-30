@@ -1,0 +1,59 @@
+needle_entry_planner:
+  ros__parameters:
+    model: /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
+    model_to_scan_transform: /workspaces/RNM/rnm-workspace-main/registration_output/model_to_scan_transform.txt
+    target_location: /workspaces/RNM/rnm-workspace-main/target_output/target_location.txt
+    output_dir: /workspaces/RNM/rnm-workspace-main/entry_point_output
+
+    # Leave target_point empty to read scan_center_m from target_location.
+    target_point: []
+    target_radius: null
+
+    model_scale: 0.001
+    approach_axis: [0.0, 0.0, 1.0]
+
+    # The sampling plane sits this far above the registered mesh.
+    plane_clearance: 0.005
+    plane_sample_spacing: 0.005
+    plane_margin: 0.02
+    max_plane_samples: 20000
+
+    needle_length: 0.16
+    needle_diameter: 0.005
+    target_exclusion_margin: 0.003
+
+    # Path elevation is measured from the horizontal plane through the target:
+    # 0 deg is horizontal, 90 deg is vertical. horizontal_axis is the plane normal.
+    horizontal_axis: [0.0, 0.0, 1.0]
+    min_path_elevation_deg: 10
+    max_path_elevation_deg: 50.0
+
+    # Hard minimum keeps the path away from bone. Preferred clearance boosts
+    # score when available without making the planner return no result.
+    min_path_clearance: 0.005
+    preferred_path_clearance: 0.010
+
+    # Backward-compatible alias for min_path_clearance when that field is null.
+    path_clearance_radius: 0.005
+    path_clearance_sample_spacing: 0.0025
+    path_clearance_entry_exclusion: 0.008
+    path_clearance_target_exclusion: null
+    path_clearance_surface_sample_count: 120000
+
+    # Optional bounds for an allowed entry patch. Leave empty to disable.
+    entry_region_min: []
+    entry_region_max: []
+
+    random_seed: 7
+    max_entry_candidates: 10
+
+    marker_radius: 0.006
+    candidate_marker_radius: 0.0035
+
+    # Outputs for visual inspection.
+    mesh_overlay_path: /workspaces/RNM/rnm-workspace-main/entry_point_output/needle_entry_overlay.ply
+    base_target_overlay_path: /workspaces/RNM/rnm-workspace-main/target_output/target_overlay.ply
+    target_entry_overlay_path: /workspaces/RNM/rnm-workspace-main/target_output/target_entry_overlay.ply
+    overlay_model_sample_count: 120000
+    write_mesh_overlay: true
+    write_target_entry_overlay: true

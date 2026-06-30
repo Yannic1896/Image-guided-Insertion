@@ -1,0 +1,71 @@
+# Three-stage mapping pipeline:
+# 1. Register the STL model to the stitched scan.
+# 2. Locate the target in scan coordinates.
+# 3. Plan needle entry candidates.
+# 4. Optionally publish one PoseArray: poses[0]=entry, poses[1]=target.
+#
+# Run with:
+# ros2 launch rnm_mapping model_target_entry_pipeline.launch.py
+
+model_registration:
+  scan: /workspaces/RNM/rnm-workspace-main/stitched_cloud.ply
+  model: /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
+  output_dir: /workspaces/RNM/rnm-workspace-main/registration_output
+
+  model_scale: 0.001
+  model_sample_count: 120000
+  scan_voxel_size: 0.008
+  model_voxel_size: 0.008
+  scan_outlier_radius: 0.0
+  scan_outlier_min_neighbors: 4
+
+  # Leave empty to disable scan cropping. Otherwise use [x, y, z].
+  crop_min: []
+  crop_max: []
+
+  initial_sample_count: 8000
+  initial_trim_fraction: 0.75
+  icp_iterations: 60
+  icp_max_correspondence_distance: 0.04
+  icp_min_correspondences: 300
+  icp_trim_fraction: 0.75
+  random_seed: 7
+
+target_locator:
+  model: /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
+  model_to_scan_transform: /workspaces/RNM/rnm-workspace-main/registration_output/model_to_scan_transform.txt
+  scan: /workspaces/RNM/rnm-workspace-main/stitched_cloud.ply
+  output_dir: /workspaces/RNM/rnm-workspace-main/target_output
+
+  model_scale: 0.001
+  model_sample_count: 180000
+  detection_voxel_size: 0.008
+  min_target_diameter: 0.012
+  max_target_diameter: 0.060
+  min_compactness: 0.45
+  bbox_margin: 0.03
+  support_radius: 0.05
+  min_support_points: 20
+  marker_radius: 0.015
+  random_seed: 7
+
+needle_entry_planner:
+  # Detailed needle-entry tuning stays in this file.
+  config: /workspaces/RNM/rnm-workspace-main/ros2_ws/src/rnm_mapping/config/needle_entry_planner.yaml
+
+  # Optional final overrides, passed after --config. Example:
+  # extra_args: [--max-entry-candidates, 20]
+  extra_args: []
+
+pose_array_publisher:
+  publish: false
+  target_location: /workspaces/RNM/rnm-workspace-main/target_output/target_location.txt
+  entry_location: /workspaces/RNM/rnm-workspace-main/entry_point_output/needle_entry_point.txt
+
+  # Candidate 0 is the chosen entry point written in the ranked candidates block.
+  entry_candidate_index: 0
+
+  pose_array_topic: /needle_poses
+  target_frame: panda_link0
+  publish_duration_sec: 30.0
+  publish_rate_hz: 5.0

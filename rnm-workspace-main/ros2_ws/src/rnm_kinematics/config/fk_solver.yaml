@@ -5,5 +5,5 @@ fk_solver_node:
         joint_states_topic: /franka_state_controller/joint_states_desired
         pose_topic: /fk_pose
         base_frame: panda_link0
-        end_effector_frame: panda_fk_flange
+        end_effector_frame: panda_EE
         publish_tf: true

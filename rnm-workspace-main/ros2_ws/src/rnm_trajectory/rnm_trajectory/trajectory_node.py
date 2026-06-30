@@ -29,16 +29,19 @@ class TrajectoryPlanningNode(Node):
         self.declare_parameter('joint_velocity_limits', [0.0])
         self.declare_parameter('joint_acceleration_limits', [0.0])
         self.declare_parameter('joint_jerk_limits', [0.0])
+        self.declare_parameter('safety_factor', 0.25)
 
         # Joint limits
         joint_velocity_limits = self.get_parameter('joint_velocity_limits').value
         joint_acceleration_limits = self.get_parameter('joint_acceleration_limits').value
         joint_jerk_limits = self.get_parameter('joint_jerk_limits').value
+        self.safety_factor = self.get_parameter('safety_factor').value
 
         self.get_logger().info(f"--- PARAMETER CHECK ---")
         self.get_logger().info(f"Velocity limits: {joint_velocity_limits}")
         self.get_logger().info(f"Acceleration limits: {joint_acceleration_limits}")
         self.get_logger().info(f"Jerk limits: {joint_jerk_limits}")
+        self.get_logger().info(f"Safety factor: {self.safety_factor}")
         
         # Topic Names
         target_pose_topic = self.get_parameter('target_pose_topic').value
