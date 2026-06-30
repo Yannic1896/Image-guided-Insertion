@@ -13,9 +13,6 @@ from rclpy.duration import Duration
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from rclpy.qos import DurabilityPolicy
-from rclpy.qos import QoSProfile
-from rclpy.qos import ReliabilityPolicy
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from sensor_msgs.msg import PointCloud2
@@ -146,13 +143,10 @@ class CloudStitcher(Node):
             self._stitched_cloud_topic,
             1,
         )
-        pose_capture_done_qos = QoSProfile(depth=1)
-        pose_capture_done_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
-        pose_capture_done_qos.reliability = ReliabilityPolicy.RELIABLE
         self._pose_capture_done_pub = self.create_publisher(
             Bool,
             self._pose_capture_done_topic,
-            pose_capture_done_qos,
+            10,
         )
         self.create_service(Trigger, "reset_scan", self._reset_scan_callback)
         self.create_service(Trigger, "save_scan", self._save_scan_callback)
@@ -169,8 +163,7 @@ class CloudStitcher(Node):
         self._logged_cloud_layout = False
         self._last_cloud_stamp_sec: Optional[float] = None
         self._last_wait_log_sec = -math.inf
-        self._pose_capture_done_state: Optional[bool] = None
-        self._publish_pose_capture_done(False)
+        self._publish_pose_capture_not_done()
 
         self.get_logger().info(
             f"Listening on {self._cloud_topic}, accumulating into "
@@ -245,7 +238,6 @@ class CloudStitcher(Node):
             return
 
         if self._settled_pose_capture_limit_reached():
-            self._publish_pose_capture_done(self._current_pose_capture_done())
             return
 
         points, colors = points_from_cloud(msg)
@@ -296,7 +288,8 @@ class CloudStitcher(Node):
         self._accepted_clouds += 1
         self._captured_current_settle_count += 1
         self._captured_current_settle = True
-        self._publish_pose_capture_done(self._current_pose_capture_done())
+        if self._current_pose_capture_done():
+            self._publish_pose_capture_done_pulse()
 
         if self._publish_after_accept:
             self._publish_accumulated(stamp)
@@ -329,12 +322,15 @@ class CloudStitcher(Node):
             return self._max_clouds_per_settled_pose
         return 1
 
-    def _publish_pose_capture_done(self, done: bool) -> None:
-        if self._pose_capture_done_state == done:
-            return
-        self._pose_capture_done_state = done
+    def _publish_pose_capture_done_pulse(self) -> None:
         msg = Bool()
-        msg.data = done
+        msg.data = True
+        self._pose_capture_done_pub.publish(msg)
+        self._publish_pose_capture_not_done()
+
+    def _publish_pose_capture_not_done(self) -> None:
+        msg = Bool()
+        msg.data = False
         self._pose_capture_done_pub.publish(msg)
 
     def _cloud_has_enough_overlap(self, points: np.ndarray) -> bool:
@@ -410,7 +406,6 @@ class CloudStitcher(Node):
             self._stable_since_sec = pose_sample.stamp_sec
             self._captured_current_settle = False
             self._captured_current_settle_count = 0
-            self._publish_pose_capture_done(False)
             return False
 
         translation_delta = np.linalg.norm(
@@ -428,7 +423,6 @@ class CloudStitcher(Node):
             self._stable_since_sec = pose_sample.stamp_sec
             self._captured_current_settle = False
             self._captured_current_settle_count = 0
-            self._publish_pose_capture_done(False)
             return False
 
         if self._stable_since_sec is None:
@@ -539,7 +533,7 @@ class CloudStitcher(Node):
         self._accepted_clouds = 0
         self._captured_current_settle = False
         self._captured_current_settle_count = 0
-        self._publish_pose_capture_done(False)
+        self._publish_pose_capture_not_done()
 
     def _save_scan_callback(self, request, response):
         del request
