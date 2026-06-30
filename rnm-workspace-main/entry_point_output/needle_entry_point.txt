@@ -1,0 +1,126 @@
+# Needle entry point from registered STL model
+# candidate_0 is the highest-scored candidate and is published.
+target_point_m: [0.235670, -0.240813, 0.074981]
+entry_point_m: [0.259047, -0.360520, 0.177629]
+insertion_axis_entry_to_target: [-0.146645, 0.750918, -0.643908]
+path_length_m: 0.159414
+needle_length_m: 0.160000
+needle_diameter_m: 0.005000
+plane_clearance_m: 0.005000
+horizontal_axis: [0.000000, 0.000000, 1.000000]
+min_path_elevation_deg: 10.000000
+max_path_elevation_deg: 50.000000
+path_elevation_deg: 40.083865
+axis_angle_from_approach_deg: 49.916135
+min_path_clearance_m: 0.005000
+preferred_path_clearance_m: 0.010000
+actual_min_path_clearance_m: 0.005775
+actual_mean_path_clearance_m: 0.029185
+closest_bone_point_m: [0.237682, -0.246930, 0.082027]
+path_clearance_entry_exclusion_m: 0.008000
+path_clearance_target_exclusion_m: 0.015000
+score: 3.221499
+valid_candidates: 286
+recorded_candidates: 10
+
+# Ranked entry candidates
+[candidate_0]
+entry_point_m: [0.259047, -0.360520, 0.177629]
+insertion_axis_entry_to_target: [-0.146645, 0.750918, -0.643908]
+path_length_m: 0.159414
+path_elevation_deg: 40.083865
+axis_angle_from_approach_deg: 49.916135
+min_path_clearance_m: 0.005775
+mean_path_clearance_m: 0.029185
+closest_bone_point_m: [0.237682, -0.246930, 0.082027]
+score: 3.221499
+[candidate_1]
+entry_point_m: [0.254065, -0.360520, 0.177629]
+insertion_axis_entry_to_target: [-0.115870, 0.754011, -0.646561]
+path_length_m: 0.158760
+path_elevation_deg: 40.282810
+axis_angle_from_approach_deg: 49.717190
+min_path_clearance_m: 0.005781
+mean_path_clearance_m: 0.030541
+closest_bone_point_m: [0.235047, -0.248052, 0.081321]
+score: 3.216228
+[candidate_2]
+entry_point_m: [0.278974, -0.355535, 0.177629]
+insertion_axis_entry_to_target: [-0.270795, 0.717391, -0.641888]
+path_length_m: 0.159916
+path_elevation_deg: 39.932767
+axis_angle_from_approach_deg: 50.067233
+min_path_clearance_m: 0.005695
+mean_path_clearance_m: 0.023597
+closest_bone_point_m: [0.237682, -0.246930, 0.082027]
+score: 3.214284
+[candidate_3]
+entry_point_m: [0.273993, -0.355535, 0.177629]
+insertion_axis_entry_to_target: [-0.241571, 0.723164, -0.647053]
+path_length_m: 0.158639
+path_elevation_deg: 40.319808
+axis_angle_from_approach_deg: 49.680192
+min_path_clearance_m: 0.005661
+mean_path_clearance_m: 0.024463
+closest_bone_point_m: [0.237682, -0.246930, 0.082027]
+score: 3.197038
+[candidate_4]
+entry_point_m: [0.199266, -0.355535, 0.177629]
+insertion_axis_entry_to_target: [0.230134, 0.725232, -0.648904]
+path_length_m: 0.158187
+path_elevation_deg: 40.459040
+axis_angle_from_approach_deg: 49.540960
+min_path_clearance_m: 0.005668
+mean_path_clearance_m: 0.047877
+closest_bone_point_m: [0.232721, -0.248681, 0.079938]
+score: 3.193758
+[candidate_5]
+entry_point_m: [0.249084, -0.360520, 0.177629]
+insertion_axis_entry_to_target: [-0.084757, 0.756393, -0.648603]
+path_length_m: 0.158260
+path_elevation_deg: 40.436362
+axis_angle_from_approach_deg: 49.563638
+min_path_clearance_m: 0.005651
+mean_path_clearance_m: 0.031971
+closest_bone_point_m: [0.235047, -0.248052, 0.081321]
+score: 3.191872
+[candidate_6]
+entry_point_m: [0.194284, -0.355535, 0.177629]
+insertion_axis_entry_to_target: [0.259624, 0.719681, -0.643937]
+path_length_m: 0.159407
+path_elevation_deg: 40.086030
+axis_angle_from_approach_deg: 49.913970
+min_path_clearance_m: 0.005537
+mean_path_clearance_m: 0.049733
+closest_bone_point_m: [0.231501, -0.247191, 0.081313]
+score: 3.185769
+[candidate_7]
+entry_point_m: [0.353701, -0.225931, 0.177629]
+insertion_axis_entry_to_target: [-0.751174, -0.094714, -0.653274]
+path_length_m: 0.157129
+path_elevation_deg: 40.788891
+axis_angle_from_approach_deg: 49.211109
+min_path_clearance_m: 0.005681
+mean_path_clearance_m: 0.023504
+closest_bone_point_m: [0.243178, -0.240922, 0.080804]
+score: 3.185206
+[candidate_8]
+entry_point_m: [0.269011, -0.355535, 0.177629]
+insertion_axis_entry_to_target: [-0.211674, 0.728348, -0.651692]
+path_length_m: 0.157510
+path_elevation_deg: 40.669321
+axis_angle_from_approach_deg: 49.330679
+min_path_clearance_m: 0.005650
+mean_path_clearance_m: 0.025475
+closest_bone_point_m: [0.237682, -0.246930, 0.082027]
+score: 3.184254
+[candidate_9]
+entry_point_m: [0.209229, -0.360520, 0.177629]
+insertion_axis_entry_to_target: [0.165365, 0.748673, -0.641983]
+path_length_m: 0.159892
+path_elevation_deg: 39.939882
+axis_angle_from_approach_deg: 50.060118
+min_path_clearance_m: 0.005495
+mean_path_clearance_m: 0.045442
+closest_bone_point_m: [0.235047, -0.248052, 0.081321]
+score: 3.184105
