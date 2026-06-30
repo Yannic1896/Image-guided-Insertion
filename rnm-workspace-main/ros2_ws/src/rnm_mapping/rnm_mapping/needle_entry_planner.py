@@ -49,6 +49,12 @@ def main(args=None) -> None:
         mesh,
         parsed.path_clearance_surface_sample_count,
     )
+    clearance_points = _filter_target_clearance_points(
+        clearance_points,
+        target_scan,
+        target_radius,
+        parsed,
+    )
     clearance_tree = cKDTree(clearance_points) if len(clearance_points) > 0 else None
     plane_points = plane_candidate_points(
         vertices=np.asarray(mesh.vertices, dtype=np.float64),
@@ -84,11 +90,21 @@ def main(args=None) -> None:
         entry_region_min=parsed.entry_region_min,
         entry_region_max=parsed.entry_region_max,
         max_entry_candidates=parsed.max_entry_candidates,
+        score_axis_alignment_weight=parsed.score_axis_alignment_weight,
+        score_elevation_weight=parsed.score_elevation_weight,
+        score_min_clearance_weight=parsed.score_min_clearance_weight,
+        score_mean_clearance_weight=parsed.score_mean_clearance_weight,
+        score_length_weight=parsed.score_length_weight,
     )
     plan = plans[0]
 
     parsed.output_dir.mkdir(parents=True, exist_ok=True)
-    _write_entry_report(parsed.output_dir / "needle_entry_point.txt", plans, parsed)
+    _write_entry_report(
+        parsed.output_dir / "needle_entry_point.txt",
+        plans,
+        parsed,
+        target_radius,
+    )
     if parsed.write_mesh_overlay:
         _write_mesh_entry_overlay(
             parsed.mesh_overlay_path,
@@ -190,8 +206,19 @@ def _make_parser(config_parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     parser.add_argument("--path-clearance-entry-exclusion", type=float, default=0.008)
     parser.add_argument("--path-clearance-target-exclusion", type=float, default=None)
     parser.add_argument("--path-clearance-surface-sample-count", type=int, default=120000)
+    parser.add_argument(
+        "--exclude-target-from-clearance",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument("--target-clearance-filter-radius", type=float, default=None)
     parser.add_argument("--entry-region-min", type=float, nargs=3, default=None)
     parser.add_argument("--entry-region-max", type=float, nargs=3, default=None)
+    parser.add_argument("--score-axis-alignment-weight", type=float, default=1.0)
+    parser.add_argument("--score-elevation-weight", type=float, default=1.0)
+    parser.add_argument("--score-min-clearance-weight", type=float, default=6.0)
+    parser.add_argument("--score-mean-clearance-weight", type=float, default=1.0)
+    parser.add_argument("--score-length-weight", type=float, default=0.25)
     parser.add_argument("--random-seed", type=int, default=7)
     parser.add_argument("--max-entry-candidates", type=int, default=10)
     parser.add_argument("--marker-radius", type=float, default=0.006)
@@ -295,13 +322,42 @@ def _read_target_location(path: Path) -> tuple[np.ndarray, float]:
 def _target_clearance_exclusion(parsed: argparse.Namespace, target_radius: float) -> float:
     if parsed.path_clearance_target_exclusion is not None:
         return float(parsed.path_clearance_target_exclusion)
+    if parsed.exclude_target_from_clearance:
+        return max(0.5 * float(parsed.needle_diameter), 0.0)
     return float(target_radius + parsed.target_exclusion_margin)
+
+
+def _filter_target_clearance_points(
+    clearance_points: np.ndarray,
+    target: np.ndarray,
+    target_radius: float,
+    parsed: argparse.Namespace,
+) -> np.ndarray:
+    if not parsed.exclude_target_from_clearance or len(clearance_points) == 0:
+        return clearance_points
+
+    filter_radius = _target_clearance_filter_radius(parsed, target_radius)
+    if filter_radius <= 0.0:
+        return clearance_points
+
+    distances = np.linalg.norm(clearance_points - target.reshape(1, 3), axis=1)
+    return clearance_points[distances > filter_radius]
+
+
+def _target_clearance_filter_radius(
+    parsed: argparse.Namespace,
+    target_radius: float,
+) -> float:
+    if parsed.target_clearance_filter_radius is not None:
+        return max(float(parsed.target_clearance_filter_radius), 0.0)
+    return max(float(target_radius + parsed.target_exclusion_margin), 0.0)
 
 
 def _write_entry_report(
     path: Path,
     plans: list[EntryPlan],
     parsed: argparse.Namespace,
+    target_radius: float,
 ) -> None:
     plan = plans[0]
     with path.open("w", encoding="utf-8") as file:
@@ -331,6 +387,12 @@ def _write_entry_report(
         file.write(f"actual_min_path_clearance_m: {plan.min_path_clearance_m:.6f}\n")
         file.write(f"actual_mean_path_clearance_m: {plan.mean_path_clearance_m:.6f}\n")
         file.write(f"closest_bone_point_m: {vector_string(plan.closest_bone_point)}\n")
+        file.write(f"exclude_target_from_clearance: {parsed.exclude_target_from_clearance}\n")
+        if parsed.exclude_target_from_clearance:
+            file.write(
+                "target_clearance_filter_radius_m: "
+                f"{_target_clearance_filter_radius(parsed, target_radius):.6f}\n"
+            )
         file.write(
             "path_clearance_entry_exclusion_m: "
             f"{parsed.path_clearance_entry_exclusion:.6f}\n"
@@ -339,6 +401,15 @@ def _write_entry_report(
             "path_clearance_target_exclusion_m: "
             f"{plan.path_clearance_target_exclusion_m:.6f}\n"
         )
+        file.write(
+            "score_weights: "
+            f"axis={parsed.score_axis_alignment_weight:.6f}, "
+            f"elevation={parsed.score_elevation_weight:.6f}, "
+            f"min_clearance={parsed.score_min_clearance_weight:.6f}, "
+            f"mean_clearance={parsed.score_mean_clearance_weight:.6f}, "
+            f"length={parsed.score_length_weight:.6f}\n"
+        )
+        _write_score_breakdown(file, plan)
         file.write(f"score: {plan.score:.6f}\n")
         file.write(f"valid_candidates: {plan.valid_candidates}\n")
         file.write(f"recorded_candidates: {len(plans)}\n")
@@ -361,7 +432,19 @@ def _write_candidate_report(file, index: int, candidate: EntryPlan) -> None:
     file.write(f"min_path_clearance_m: {candidate.min_path_clearance_m:.6f}\n")
     file.write(f"mean_path_clearance_m: {candidate.mean_path_clearance_m:.6f}\n")
     file.write(f"closest_bone_point_m: {vector_string(candidate.closest_bone_point)}\n")
+    _write_score_breakdown(file, candidate)
     file.write(f"score: {candidate.score:.6f}\n")
+
+
+def _write_score_breakdown(file, plan: EntryPlan) -> None:
+    file.write(
+        "score_components: "
+        f"axis={plan.axis_alignment_score:.6f}, "
+        f"elevation={plan.elevation_score:.6f}, "
+        f"min_clearance={plan.min_clearance_score:.6f}, "
+        f"mean_clearance={plan.mean_clearance_score:.6f}, "
+        f"length={plan.length_score:.6f}\n"
+    )
 
 
 def _write_mesh_entry_overlay(
