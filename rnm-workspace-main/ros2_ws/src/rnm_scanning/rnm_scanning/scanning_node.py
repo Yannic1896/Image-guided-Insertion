@@ -61,7 +61,8 @@ class ScanningNode(Node):
         self.model_reg_joints = self._load_stitching_poses(poses_file)
 
         self.chessboard_visible = False
-        self.trajectory_finished = False 
+        self.trajectory_finished = False
+        self._accepting_pose_done = False  # blocks stale TRANSIENT_LOCAL msg for first 5 s
         self.latest_fk_pose = None
         self.startPoseSend= False
         self.sample_count = 0
@@ -94,7 +95,14 @@ class ScanningNode(Node):
         self.loop_timer = self.create_timer(1.0, self.scanning_loop)
         self.get_logger().info(f"Scanning Node started in [{self.scanning_mode}] mode.")
 
+        self._unblock_timer = self.create_timer(5.0, self._unblock_pose_done)
         self.send_next_target()
+
+    def _unblock_pose_done(self) -> None:
+        """Allow pose_capture_done messages to be acted on after the 5 s startup window."""
+        self._unblock_timer.cancel()
+        self._accepting_pose_done = True
+        self.get_logger().info("Now accepting pose_capture_done signals.")
 
     # ------------------------------------------------------------------
     # Subscriber callbacks
@@ -107,8 +115,9 @@ class ScanningNode(Node):
         self.chessboard_visible = msg.data
 
     def trajectory_callback(self, msg: Bool) -> None:
-        # True when the robot has settled and data was captured
-        if msg.data:
+        # True when the robot has settled and data was captured.
+        # Ignored for the first 5 s to avoid acting on a stale TRANSIENT_LOCAL message.
+        if msg.data and self._accepting_pose_done:
             self.trajectory_finished = True
 
 
