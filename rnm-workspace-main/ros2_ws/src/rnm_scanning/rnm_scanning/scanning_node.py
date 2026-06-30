@@ -9,7 +9,8 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped, Quaternion
 from rclpy.node import Node
-from std_msgs.msg import Bool, Float64MultiArray, UInt64
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import Bool, Float64MultiArray
 
 
 class ScanningNode(Node):
@@ -74,7 +75,14 @@ class ScanningNode(Node):
             Bool, '/chessboard_detected', self.detect_callback, 10
         )
         self.trajectory_status_sub = self.create_subscription(
-            UInt64, '/trajectory_finished', self.trajectory_callback, 10
+            Bool,
+            '/cloud_stitcher/pose_capture_done',
+            self.trajectory_callback,
+            QoSProfile(
+                depth=1,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                reliability=ReliabilityPolicy.RELIABLE,
+            ),
         )
 
         # Publishers
@@ -98,9 +106,9 @@ class ScanningNode(Node):
     def detect_callback(self, msg: Bool) -> None:
         self.chessboard_visible = msg.data
 
-    def trajectory_callback(self, msg: UInt64) -> None:
-        # Topic is only published when trajectory is completed(value= 0)
-        if msg.data == 0:
+    def trajectory_callback(self, msg: Bool) -> None:
+        # True when the robot has settled and data was captured
+        if msg.data:
             self.trajectory_finished = True
 
 
