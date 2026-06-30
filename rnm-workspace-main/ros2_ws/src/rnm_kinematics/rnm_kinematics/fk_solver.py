@@ -1,4 +1,4 @@
-"""Forward kinematics utilities for the Franka Panda DH model."""
+"""Forward kinematics utilities for the Franka Panda modified-DH model."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import numpy as np
 
 
 class ForwardKinematicsSolver:
-    """Compute the end-effector transform from a standard DH table."""
+    """Compute the end-effector transform from a modified-DH table."""
 
     def __init__(self, dh_params: Sequence[Sequence[float]]) -> None:
         dh_matrix = np.asarray(dh_params, dtype=float)
@@ -47,7 +47,7 @@ class ForwardKinematicsSolver:
 
 
 def dh_transform(theta: float, d_value: float, a_value: float, alpha: float) -> np.ndarray:
-    """Build one standard DH transform matrix."""
+    """Build one modified-DH transform matrix."""
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
     cos_alpha = np.cos(alpha)
@@ -57,17 +57,22 @@ def dh_transform(theta: float, d_value: float, a_value: float, alpha: float) -> 
         [
             [
                 cos_theta,
-                -sin_theta * cos_alpha,
-                sin_theta * sin_alpha,
-                a_value * cos_theta,
+                -sin_theta,
+                0.0,
+                a_value,
             ],
             [
-                sin_theta,
+                sin_theta * cos_alpha,
                 cos_theta * cos_alpha,
-                -cos_theta * sin_alpha,
-                a_value * sin_theta,
+                -sin_alpha,
+                -d_value * sin_alpha,
             ],
-            [0.0, sin_alpha, cos_alpha, d_value],
+            [
+                sin_theta * sin_alpha,
+                cos_theta * sin_alpha,
+                cos_alpha,
+                d_value * cos_alpha,
+            ],
             [0.0, 0.0, 0.0, 1.0],
         ],
         dtype=float,

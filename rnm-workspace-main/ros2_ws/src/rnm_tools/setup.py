@@ -32,6 +32,7 @@ setup(
         "console_scripts": [
             "urdf_visualizer = rnm_tools.urdf_visualizer:main",
             "joint_command_publisher = rnm_tools.joint_command_publisher:main",
+            "camera_static_tf_publisher = rnm_tools.camera_static_tf_publisher:main",
         ],
     },
 )
