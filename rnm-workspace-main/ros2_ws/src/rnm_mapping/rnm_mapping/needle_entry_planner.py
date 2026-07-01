@@ -49,12 +49,15 @@ def main(args=None) -> None:
         mesh,
         parsed.path_clearance_surface_sample_count,
     )
+<<<<<<< HEAD
     clearance_points = _filter_target_clearance_points(
         clearance_points,
         target_scan,
         target_radius,
         parsed,
     )
+=======
+>>>>>>> origin/main
     clearance_tree = cKDTree(clearance_points) if len(clearance_points) > 0 else None
     plane_points = plane_candidate_points(
         vertices=np.asarray(mesh.vertices, dtype=np.float64),
@@ -90,21 +93,28 @@ def main(args=None) -> None:
         entry_region_min=parsed.entry_region_min,
         entry_region_max=parsed.entry_region_max,
         max_entry_candidates=parsed.max_entry_candidates,
+<<<<<<< HEAD
         score_axis_alignment_weight=parsed.score_axis_alignment_weight,
         score_elevation_weight=parsed.score_elevation_weight,
         score_min_clearance_weight=parsed.score_min_clearance_weight,
         score_mean_clearance_weight=parsed.score_mean_clearance_weight,
         score_length_weight=parsed.score_length_weight,
+=======
+>>>>>>> origin/main
     )
     plan = plans[0]
 
     parsed.output_dir.mkdir(parents=True, exist_ok=True)
+<<<<<<< HEAD
     _write_entry_report(
         parsed.output_dir / "needle_entry_point.txt",
         plans,
         parsed,
         target_radius,
     )
+=======
+    _write_entry_report(parsed.output_dir / "needle_entry_point.txt", plans, parsed)
+>>>>>>> origin/main
     if parsed.write_mesh_overlay:
         _write_mesh_entry_overlay(
             parsed.mesh_overlay_path,
@@ -206,6 +216,7 @@ def _make_parser(config_parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     parser.add_argument("--path-clearance-entry-exclusion", type=float, default=0.008)
     parser.add_argument("--path-clearance-target-exclusion", type=float, default=None)
     parser.add_argument("--path-clearance-surface-sample-count", type=int, default=120000)
+<<<<<<< HEAD
     parser.add_argument(
         "--exclude-target-from-clearance",
         action=argparse.BooleanOptionalAction,
@@ -219,6 +230,10 @@ def _make_parser(config_parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     parser.add_argument("--score-min-clearance-weight", type=float, default=6.0)
     parser.add_argument("--score-mean-clearance-weight", type=float, default=1.0)
     parser.add_argument("--score-length-weight", type=float, default=0.25)
+=======
+    parser.add_argument("--entry-region-min", type=float, nargs=3, default=None)
+    parser.add_argument("--entry-region-max", type=float, nargs=3, default=None)
+>>>>>>> origin/main
     parser.add_argument("--random-seed", type=int, default=7)
     parser.add_argument("--max-entry-candidates", type=int, default=10)
     parser.add_argument("--marker-radius", type=float, default=0.006)
@@ -322,6 +337,7 @@ def _read_target_location(path: Path) -> tuple[np.ndarray, float]:
 def _target_clearance_exclusion(parsed: argparse.Namespace, target_radius: float) -> float:
     if parsed.path_clearance_target_exclusion is not None:
         return float(parsed.path_clearance_target_exclusion)
+<<<<<<< HEAD
     if parsed.exclude_target_from_clearance:
         return max(0.5 * float(parsed.needle_diameter), 0.0)
     return float(target_radius + parsed.target_exclusion_margin)
@@ -353,11 +369,19 @@ def _target_clearance_filter_radius(
     return max(float(target_radius + parsed.target_exclusion_margin), 0.0)
 
 
+=======
+    return float(target_radius + parsed.target_exclusion_margin)
+
+
+>>>>>>> origin/main
 def _write_entry_report(
     path: Path,
     plans: list[EntryPlan],
     parsed: argparse.Namespace,
+<<<<<<< HEAD
     target_radius: float,
+=======
+>>>>>>> origin/main
 ) -> None:
     plan = plans[0]
     with path.open("w", encoding="utf-8") as file:
