@@ -21,3 +21,8 @@ __pycache__/
 //for running on windows
 rc/rnm_sample/rnm_sample/__pycache__/__init__.cpython-310.pyc
 rnm-workspace-main/ros2_ws/src/rnm_sample/rnm_sample/__pycache__/talker.cpython-310.pyc
+
+*.mcap
+
+scanning_bag/
+calibration_bag/
