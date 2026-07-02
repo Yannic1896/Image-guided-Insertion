@@ -62,28 +62,13 @@ class ScanningNode(Node):
 
         self.chessboard_visible = False
         self.trajectory_finished = False
-        self._accepting_pose_done = False  # blocks stale TRANSIENT_LOCAL msg for first 5 s
-        self.latest_fk_pose = None
+        self.motion_started = False
         self.startPoseSend= False
         self.sample_count = 0
         self.model_reg_index = 0
 
-        # Subscribers
-        self.fk_sub = self.create_subscription(
-            PoseStamped, '/fk_pose', self.fk_callback, 10
-        )
         self.detect_sub = self.create_subscription(
             Bool, '/chessboard_detected', self.detect_callback, 10
-        )
-        self.trajectory_status_sub = self.create_subscription(
-            Bool,
-            '/cloud_stitcher/pose_capture_done',
-            self.trajectory_callback,
-            QoSProfile(
-                depth=1,
-                durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                reliability=ReliabilityPolicy.RELIABLE,
-            ),
         )
 
         # Publishers
@@ -92,40 +77,22 @@ class ScanningNode(Node):
         self.trigger_image_pub = self.create_publisher(Bool, '/trigger_image_capture', 10)
         self.trigger_pointcloud_pub = self.create_publisher(Bool, '/trigger_pointcloud_capture', 10)
 
-        self.loop_timer = self.create_timer(1.0, self.scanning_loop)
+        self.loop_timer = self.create_timer(10.0, self.scanning_loop)
         self.get_logger().info(f"Scanning Node started in [{self.scanning_mode}] mode.")
 
-        self._unblock_timer = self.create_timer(5.0, self._unblock_pose_done)
-        self.send_next_target()
-
-    def _unblock_pose_done(self) -> None:
-        """Allow pose_capture_done messages to be acted on after the 5 s startup window."""
-        self._unblock_timer.cancel()
-        self._accepting_pose_done = True
-        self.get_logger().info("Now accepting pose_capture_done signals.")
-
-    # ------------------------------------------------------------------
-    # Subscriber callbacks
-    # ------------------------------------------------------------------
-
-    def fk_callback(self, msg: PoseStamped) -> None:
-        self.latest_fk_pose = msg
 
     def detect_callback(self, msg: Bool) -> None:
         self.chessboard_visible = msg.data
 
-    def trajectory_callback(self, msg: Bool) -> None:
-        # True when the robot has settled and data was captured.
-        # Ignored for the first 5 s to avoid acting on a stale TRANSIENT_LOCAL message.
-        if msg.data and self._accepting_pose_done:
-            self.trajectory_finished = True
-
-
     def scanning_loop(self) -> None:
 
-        if not self.trajectory_finished:
+        if not self.motion_started:
+            self.motion_started = True
+            self.get_logger().info("Sending initial target.")
+            self.send_next_target()
             return
-    
+
+        
         if self.scanning_mode == 'hand_eye':
             if self.chessboard_visible:
                 self.get_logger().info(
@@ -161,21 +128,7 @@ class ScanningNode(Node):
                 self.loop_timer.cancel()
                 return
 
-        self.schedule_next_scan()
-
-    def schedule_next_scan(self):
-        delay = self.get_parameter('delay_between_scans').value
-        self.next_scan_timer = self.create_timer(delay, self._next_scan_timer_callback)
-
-    def _next_scan_timer_callback(self):
-        self.next_scan_timer.cancel()
-        self.destroy_timer(self.next_scan_timer)
-        self.next_scan_timer = None
         self.send_next_target()
-
-    # ------------------------------------------------------------------
-    # Motion helpers
-    # ------------------------------------------------------------------
 
 
     def send_next_target(self) -> None:
@@ -212,6 +165,9 @@ class ScanningNode(Node):
             target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
 
         elif self.scanning_mode == 'model_registration':
+            if self.model_reg_index >= len(self.model_reg_joints):
+                self.get_logger().info("No more poses left.")
+                return
             joints = self.model_reg_joints[self.model_reg_index]
             self.get_logger().info(
                 f"Moving to scan point {self.model_reg_index + 1}/{len(self.model_reg_joints)}"
