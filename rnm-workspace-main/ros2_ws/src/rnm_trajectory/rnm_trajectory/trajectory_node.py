@@ -118,23 +118,6 @@ class TrajectoryPlanningNode(Node):
         trajectory_msg.joint_names = self.joint_names
         self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
 
-        # --- DEBUGGING: DISCONTINUITY DISCOVERY ---
-        max_pos_jump = 0.0
-        for idx in range(1, len(trajectory_msg.points)):
-            pt_prev = np.array(trajectory_msg.points[idx-1].positions)
-            pt_curr = np.array(trajectory_msg.points[idx].positions)
-    
-        # Calculate the step distance per joint for this 1ms window
-        jumps = np.abs(pt_curr - pt_prev)
-        if np.max(jumps) > max_pos_jump:
-            max_pos_jump = np.max(jumps)
-
-        # Standard Franka controllers tolerate roughly ~0.001 to 0.0015 radians per ms maximum
-        self.get_logger().info(f"[DEBUG] Maximum joint position jump in 1ms window: {max_pos_jump:.6f} rad")
-        if max_pos_jump > 0.0015:
-            self.get_logger().error("[DEBUG WARNING] This trajectory contains a radical jump! Hardware will reject this.")
-        # --- END DEBUGGING BLOCK ---
-
         # Put data into Float64MultiArray message
         flattened_data = []
         n_points = len(trajectory_msg.points)
@@ -145,6 +128,18 @@ class TrajectoryPlanningNode(Node):
 
         array_msg = Float64MultiArray()
 
+        dim_points = MultiArrayDimension()
+        dim_points.label = "points"
+        dim_points.size = n_points
+        dim_points.stride = n_points * n_joints
+
+        dim_joints = MultiArrayDimension()
+        dim_joints.label = "joints"
+        dim_joints.size = n_joints
+        dim_joints.stride = n_joints
+
+        array_msg.layout.dim = [dim_points, dim_joints]
+        array_msg.layout.data_offset = 0
         array_msg.data = flattened_data
 
         # Publish full trajectory at once
@@ -156,7 +151,7 @@ class TrajectoryPlanningNode(Node):
         path = self.path_planner.joint_path(start_q, goal_q)
 
         # compute trajectory
-        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, self.safety_factor)
+        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, safety_factor=0.05)
 
         for pt in raw_trajectory:
             point_msg = JointTrajectoryPoint()

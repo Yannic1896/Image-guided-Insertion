@@ -50,7 +50,7 @@ class QuinticTrajectoryGenerator:
         
         # duration as long as slowest joint takes (at least 1)
         T_calculated = max(times)
-        T_final = max(T_calculated, 4.0)
+        T_final = max(T_calculated, 1.0)
     
         return T_final
     
@@ -73,7 +73,6 @@ class QuinticTrajectoryGenerator:
             boundary_conditions = np.array([start_q[i], 0.0, 0.0, goal_q[i], 0.0, 0.0])
             coefficients_i = np.linalg.solve(M, boundary_conditions)
             coefficients[i, :] = coefficients_i
-
         return coefficients
     
     def generate_trajectory(self, path, frequency, safety_factor):
