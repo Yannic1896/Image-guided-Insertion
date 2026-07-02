@@ -1,9 +1,9 @@
 needle_entry_planner:
   ros__parameters:
-    model: /workspaces/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
-    model_to_scan_transform: /workspaces/RNM/rnm-workspace-main/registration_output/model_to_scan_transform.txt
-    target_location: /workspaces/RNM/rnm-workspace-main/target_output/target_location.txt
-    output_dir: /workspaces/RNM/rnm-workspace-main/entry_point_output
+    model: /workspaces/rnm-documents-primary/scanning_bag/Skeleton_Target.stl
+    model_to_scan_transform: /workspaces/rnm-documents-primary/registration_output/model_to_scan_transform.txt
+    target_location: /workspaces/rnm-documents-primary/target_output/target_location.txt
+    output_dir: /workspaces/rnm-documents-primary/entry_point_output
 
     # Leave target_point empty to read scan_center_m from target_location.
     target_point: []
@@ -18,7 +18,7 @@ needle_entry_planner:
     plane_margin: 0.02
     max_plane_samples: 20000
 
-    needle_length: 0.16
+    needle_length: 0.17
     needle_diameter: 0.005
     target_exclusion_margin: 0.003
 
@@ -26,12 +26,12 @@ needle_entry_planner:
     # 0 deg is horizontal, 90 deg is vertical. horizontal_axis is the plane normal.
     horizontal_axis: [0.0, 0.0, 1.0]
     min_path_elevation_deg: 10
-    max_path_elevation_deg: 50.0
+    max_path_elevation_deg: 70.0
 
     # Hard minimum keeps the path away from bone. Preferred clearance boosts
     # score when available without making the planner return no result.
     min_path_clearance: 0.005
-    preferred_path_clearance: 0.010
+    preferred_path_clearance: 0.030
 
     # Backward-compatible alias for min_path_clearance when that field is null.
     path_clearance_radius: 0.005
@@ -39,6 +39,17 @@ needle_entry_planner:
     path_clearance_entry_exclusion: 0.008
     path_clearance_target_exclusion: null
     path_clearance_surface_sample_count: 120000
+    exclude_target_from_clearance: true
+    target_clearance_filter_radius: null
+
+    # Score weights. Hard constraints still run first; these only rank valid
+    # candidates. Min clearance is intentionally dominant so paths farther from
+    # ribs beat slightly nicer angle/length candidates.
+    score_axis_alignment_weight: 1.0
+    score_elevation_weight: 1.0
+    score_min_clearance_weight: 6.0
+    score_mean_clearance_weight: 1.0
+    score_length_weight: 0.25
 
     # Optional bounds for an allowed entry patch. Leave empty to disable.
     entry_region_min: []
@@ -51,9 +62,9 @@ needle_entry_planner:
     candidate_marker_radius: 0.0035
 
     # Outputs for visual inspection.
-    mesh_overlay_path: /workspaces/RNM/rnm-workspace-main/entry_point_output/needle_entry_overlay.ply
-    base_target_overlay_path: /workspaces/RNM/rnm-workspace-main/target_output/target_overlay.ply
-    target_entry_overlay_path: /workspaces/RNM/rnm-workspace-main/target_output/target_entry_overlay.ply
+    mesh_overlay_path: /workspaces/rnm-documents-primary/entry_point_output/needle_entry_overlay.ply
+    base_target_overlay_path: /workspaces/rnm-documents-primary/target_output/target_overlay.ply
+    target_entry_overlay_path: /workspaces/rnm-documents-primary/target_output/target_entry_overlay.ply
     overlay_model_sample_count: 120000
     write_mesh_overlay: true
     write_target_entry_overlay: true

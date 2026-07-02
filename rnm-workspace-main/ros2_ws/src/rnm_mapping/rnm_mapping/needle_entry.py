@@ -25,6 +25,11 @@ class EntryPlan:
     mean_path_clearance_m: float
     closest_bone_point: np.ndarray
     path_clearance_target_exclusion_m: float
+    axis_alignment_score: float
+    elevation_score: float
+    min_clearance_score: float
+    mean_clearance_score: float
+    length_score: float
     score: float
     valid_candidates: int
 
@@ -104,6 +109,11 @@ def find_entry_points(
     entry_region_min: Optional[np.ndarray],
     entry_region_max: Optional[np.ndarray],
     max_entry_candidates: int,
+    score_axis_alignment_weight: float,
+    score_elevation_weight: float,
+    score_min_clearance_weight: float,
+    score_mean_clearance_weight: float,
+    score_length_weight: float,
 ) -> list[EntryPlan]:
     vectors = candidate_points - target
     distances = np.linalg.norm(vectors, axis=1)
@@ -166,8 +176,12 @@ def find_entry_points(
 
         insertion_axis = unit_vector(target - entry)
         length_score = 1.0 - min(path_length / max(needle_length_m, 1e-9), 1.0)
-        clearance_score = min(
+        min_clearance_score = min(
             clearance.min_distance_m / max(preferred_path_clearance_m, 1e-9),
+            1.0,
+        )
+        mean_clearance_score = min(
+            clearance.mean_distance_m / max(preferred_path_clearance_m, 1e-9),
             1.0,
         )
         elevation_center = 0.5 * (min_path_elevation_rad + max_path_elevation_rad)
@@ -177,10 +191,11 @@ def find_entry_points(
             1.0,
         )
         score = (
-            2.5 * axis_alignment
-            + 1.5 * elevation_score
-            + 1.5 * clearance_score
-            + 0.5 * length_score
+            score_axis_alignment_weight * axis_alignment
+            + score_elevation_weight * elevation_score
+            + score_min_clearance_weight * min_clearance_score
+            + score_mean_clearance_weight * mean_clearance_score
+            + score_length_weight * length_score
         )
         valid_count += 1
 
@@ -198,6 +213,11 @@ def find_entry_points(
                 path_clearance_target_exclusion_m=float(
                     path_clearance_target_exclusion_m
                 ),
+                axis_alignment_score=float(axis_alignment),
+                elevation_score=float(elevation_score),
+                min_clearance_score=float(min_clearance_score),
+                mean_clearance_score=float(mean_clearance_score),
+                length_score=float(length_score),
                 score=float(score),
                 valid_candidates=0,
             )
