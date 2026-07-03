@@ -12,6 +12,8 @@ import numpy as np
 import os
 import threading
 
+from rnm_handeye.calc_handeye import calculate_handeye
+
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -29,6 +31,7 @@ class CollectorNode(Node):
         self.latest_camera_pose = None
         self.latest_image = None
         self.chessboard_visible = False
+        self.samples = 0
 
         self.bridge = CvBridge()
 
@@ -195,6 +198,7 @@ class CollectorNode(Node):
 
     def destroy_node(self):
         self.save_data()
+        calculate_handeye()
         super().destroy_node()
 
 

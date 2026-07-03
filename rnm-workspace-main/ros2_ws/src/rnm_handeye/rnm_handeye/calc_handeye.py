@@ -4,7 +4,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 import os
 
-def main(args = None):
+def calculate_handeye():
 
     package_path = get_package_share_directory("rnm_handeye")
 
@@ -94,6 +94,9 @@ def main(args = None):
 
     print("Calibration calculated")
     print("Saved:", result_file)
+
+def main():
+    calculate_handeye()
 
 if __name__ == "__main__":
     main()
