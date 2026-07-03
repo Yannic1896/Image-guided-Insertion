@@ -67,6 +67,9 @@ class ScanningNode(Node):
         self.sample_count = 0
         self.model_reg_index = 0
 
+        self.max_orientation_tweak = math.radians(5.0)
+
+
         self.detect_sub = self.create_subscription(
             Bool, '/chessboard_detected', self.detect_callback, 10
         )
@@ -153,9 +156,10 @@ class ScanningNode(Node):
                 y = random.uniform(*self.y_bounds)
                 z = random.uniform(*self.z_bounds)
                 max_tweak = math.radians(5.0)
-                roll = math.radians(180.0) + random.uniform(-max_tweak, max_tweak)
-                pitch = random.uniform(-max_tweak, max_tweak)
-                yaw = random.uniform(-max_tweak, max_tweak)
+                t = self.max_orientation_tweak
+                roll = self.start_roll + random.uniform(-t, t)
+                pitch = self.start_pitch + random.uniform(-t, t)
+                yaw = self.start_yaw + random.uniform(-t, t)
                 self.get_logger().info(
                     f"Moving to hand-eye pose: XYZ,RYP=[{x:.3f}, {y:.3f}, {z:.3f}, {roll:.3f}, {pitch:.3f}, {yaw:.3f}]"
                 )
