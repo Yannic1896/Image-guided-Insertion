@@ -3,10 +3,16 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Bool
+from sensor_msgs.msg import Image
+
+import cv2
+from cv_bridge import CvBridge
 
 import numpy as np
 import os
 import threading
+
+from rnm_handeye.calc_handeye import calculate_handeye
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -19,10 +25,15 @@ class CollectorNode(Node):
 
         self.robot_poses = []
         self.camera_poses = []
+        self.images = []
 
         self.latest_fk_pose = None
         self.latest_camera_pose = None
+        self.latest_image = None
         self.chessboard_visible = False
+        self.samples = 0
+
+        self.bridge = CvBridge()
 
         # Safe location
         package_path = get_package_share_directory("rnm_handeye")
@@ -41,6 +52,13 @@ class CollectorNode(Node):
             10
         )
 
+        self.image_sub = self.create_subscription(
+            Image,
+            "/k4a/rgb/image_raw",
+            self.image_callback,
+            10
+        )
+
         self.camera_sub = self.create_subscription(
             PoseStamped,
             "/chessboard_pose",
@@ -55,8 +73,15 @@ class CollectorNode(Node):
             10
         )
 
+        self.trigger_sub = self.create_subscription(
+            Bool,
+            "/trigger_image_capture",
+            self.trigger_callback,
+            10
+        )
+
         self.get_logger().info("Handeye collector started")
-        self.get_logger().info("Press ENTER to capture sample or 'exit' to quit")
+        self.get_logger().info("Collector ready. ENTER for manual capture, 'exit' to quit")
 
         # Keyboard thread
         self.keyboard_thread = threading.Thread(target=self.keyboard_loop, daemon=True)
@@ -71,6 +96,14 @@ class CollectorNode(Node):
 
     def detect_callback(self,msg):
         self.chessboard_visible = msg.data
+
+    def image_callback(self,msg):
+        self.latest_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+
+    def trigger_callback(self,msg):
+        if msg.data:
+            self.get_logger().info("Triggering image capture")
+            self.capture_sample()
 
 
     def keyboard_loop(self):
@@ -101,9 +134,18 @@ class CollectorNode(Node):
             self.get_logger().warn("Chessboard not detected")
             return
         
+        if self.latest_image is None:
+            self.get_logger().warn("No camera image received")
+            return
+        
+        image = self.latest_image.copy()
         robot_T = self.pose_to_matrix(self.latest_fk_pose)
         camera_T = self.pose_to_matrix(self.latest_camera_pose)
 
+        image_path = os.path.join(self.save_path, f"image_{len(self.images):03d}.png")
+        cv2.imwrite(image_path, image)
+
+        self.images.append(image_path)
         self.robot_poses.append(robot_T)
         self.camera_poses.append(camera_T)
 
@@ -113,14 +155,19 @@ class CollectorNode(Node):
 
     def load_data(self):
         if os.path.exists(self.save_file):
-            data = np.load(self.save_file)
-            self.robot_poses = list(data["gripper2base_poses"])
-            self.camera_poses = list(data["target2cam_poses"])
-            self.get_logger().info(f"Loaded {len(self.robot_poses)} old samples")
+            with np.load(self.save_file, allow_pickle=True) as data:
+                self.robot_poses = list(data["gripper2base_poses"])
+                self.camera_poses = list(data["target2cam_poses"])
+
+                if "images" in data.files:
+                    self.images=list(data["images"])
+
+                self.get_logger().info(f"Loaded {len(self.robot_poses)} old samples")
 
     def save_data(self):
         np.savez(self.save_file, gripper2base_poses=np.array(self.robot_poses),
-                    target2cam_poses=np.array(self.camera_poses))
+                    target2cam_poses=np.array(self.camera_poses),
+                    images=np.array(self.images))
         
     def pose_to_matrix(self, pose):
         p = pose.pose.position
@@ -151,6 +198,7 @@ class CollectorNode(Node):
 
     def destroy_node(self):
         self.save_data()
+        calculate_handeye()
         super().destroy_node()
 
 
