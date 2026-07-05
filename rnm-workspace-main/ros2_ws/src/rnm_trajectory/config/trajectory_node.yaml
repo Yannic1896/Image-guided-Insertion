@@ -6,6 +6,8 @@
     ik_target_pose_topic: /ik_target_pose
     ik_joint_goal_topic: /ik_joint_goal
     joint_trajectory_topic: /joint_trajectory
+    needle_path_topic: /needle_path
+    registration_topic: /needle_poses
     planning_mode: joint
     joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
     joint_velocity_limits: [2.1750, 2.1750, 2.1750, 2.1750, 2.6100, 2.6100, 2.6100]
