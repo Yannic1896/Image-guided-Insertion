@@ -3,7 +3,7 @@
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PoseArray
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, MultiArrayLayout, MultiArrayDimension
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -21,7 +21,8 @@ class TrajectoryPlanningNode(Node):
         self.declare_parameter('ik_target_pose_topic', '/ik_target_pose')
         self.declare_parameter('ik_joint_goal_topic', '/ik_joint_goal')
         self.declare_parameter('joint_trajectory_topic', '/joint_position_example_controller/joint_trajectory_command')
-        self.declare_parameter('planning_mode', 'joint') # cartesian or joint
+        self.declare_parameter('needle_path_topic', '/needle_path')
+
         self.declare_parameter('joint_names', [
             'panda_joint1', 'panda_joint2', 'panda_joint3', 'panda_joint4',
             'panda_joint5', 'panda_joint6', 'panda_joint7'
@@ -37,7 +38,7 @@ class TrajectoryPlanningNode(Node):
         joint_jerk_limits = self.get_parameter('joint_jerk_limits').value
         self.safety_factor = self.get_parameter('safety_factor').value
 
-        self.get_logger().info(f"--- PARAMETER CHECK ---")
+        self.get_logger().info(f"PARAMETER CHECK")
         self.get_logger().info(f"Velocity limits: {joint_velocity_limits}")
         self.get_logger().info(f"Acceleration limits: {joint_acceleration_limits}")
         self.get_logger().info(f"Jerk limits: {joint_jerk_limits}")
@@ -49,15 +50,14 @@ class TrajectoryPlanningNode(Node):
         ik_target_pose_topic = self.get_parameter('ik_target_pose_topic').value
         ik_joint_goal_topic = self.get_parameter('ik_joint_goal_topic').value
         joint_trajectory_topic = self.get_parameter('joint_trajectory_topic').value
-        
-        self.planning_mode = self.get_parameter('planning_mode').value
+        needle_path_topic = self.get_parameter('needle_path_topic').value
         self.joint_names = self.get_parameter('joint_names').value
 
         # Publishers
         self.ik_target_pub = self.create_publisher(PoseStamped, ik_target_pose_topic, 10)
         self.joint_traj_pub = self.create_publisher(Float64MultiArray, joint_trajectory_topic, 10)
 
-        self.publish_rate_hz = 1000 # Robot needs 1000Hz, for testing we can use lower rates like 100Hz or 500Hz
+        self.publish_rate_hz = 1000 # Robot needs 1000Hz
         self.trajectory_to_publish = []
         self.trajectory_publish_index = 0
         
@@ -68,6 +68,8 @@ class TrajectoryPlanningNode(Node):
             JointState, joint_states_topic, self.joint_states_callback, 10)
         self.ik_joint_goal_sub = self.create_subscription(
             Float64MultiArray, ik_joint_goal_topic, self.ik_joint_goal_callback, 10)
+        self.needle_path_sub = self.create_subscription(
+            JointTrajectory, needle_path_topic, self.needle_path_callback, 10)
             
         self.current_joint_state = None
         self.last_target_pose = None
@@ -111,64 +113,103 @@ class TrajectoryPlanningNode(Node):
             return
             
         self.get_logger().info('Generating trajectory...')
+
+        # Compute path [start_q, waypoint1, waypoint2, ..., goal_q]
+        path = self.path_planner.joint_path(self.current_joint_state, goal_q)
+
+        # Compute trajectory
+        try:
+            trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, self.safety_factor, min_duration=4.0)
+            self._publish_trajectory(trajectory)
+        except ValueError as e:
+            self.get_logger().error(f"Trajectory validation failed: {str(e)}")
+
+    def needle_path_callback(self, msg:JointTrajectory):
+        """ Receive Needle Path"""
+        self.get_logger().info('Received needle insertion path.')
+
+        needle_path = []
+        for point in msg.points:
+            needle_path.append(list(point.positions))
+            
+        n_waypoints = len(needle_path)
+        self.get_logger().info(f"{n_waypoints} waypoints in needle path")
+
+        if n_waypoints < 2:
+            self.get_logger().error("Not enough points in needle path.")
+            return
+
+        pre_entry_point = needle_path[0]
+        entry_point = needle_path[1]
+
+        try:
+            self.get_logger().info('Generating approach trajectory...')
+            approach_path = self.path_planner.joint_path(self.current_joint_state, pre_entry_point)
+            approach_traj = self.generator.generate_trajectory(approach_path, self.publish_rate_hz, self.safety_factor, min_duration=4.0)
+
+            self.get_logger().info('Generating pre-entry to entry trajectory...')
+            pre_to_entry_path = self.path_planner.joint_path(pre_entry_point, entry_point)
+            pre_to_entry_traj = self.generator.generate_trajectory(pre_to_entry_path, self.publish_rate_hz, self.safety_factor, min_duration=2.0)
+
+            self.get_logger().info('Generating needle insertion trajectory...')
+            insertion_path = needle_path[1:]
+            insertion_traj = self.generator.generate_trajectory(insertion_path, self.publish_rate_hz, self.safety_factor, min_duration=0.3)
+
+            final_trajectory = self._concatenate_trajectories([approach_traj, pre_to_entry_traj, insertion_traj])
+
+            self._publish_trajectory(final_trajectory)
+        except ValueError as e:
+            self.get_logger().error(f"Needle trajectory verification failed: {str(e)}")
+
+    def _concatenate_trajectories(self,trajectories):
+        """
+        Stitches multiple trajectories into one continuous trajectory.
+        Args:
+            trajectories (list): list of individual trajectories to be stitched
+        Returns:
+            list: fully stitched trajectory
+        """
+        full_trajectory = []
+        t_offset = 0.0
+
+        for idx, traj in enumerate(trajectories):
+            if not traj:
+                continue
+            points = traj[1:] if idx > 0 else traj
+            for point in points:
+                full_trajectory.append({
+                    'time': point['time'] + t_offset,
+                    'positions': point['positions'],
+                    'velocities': point['velocities'],
+                    'accelerations': point['accelerations'],
+                })
+            t_offset = full_trajectory[-1]['time']
+
+        return full_trajectory
         
-       
-        # Generate Trajectory
-        trajectory_msg = JointTrajectory()
-        trajectory_msg.joint_names = self.joint_names
-        self._plan_joint_trajectory(self.current_joint_state, goal_q, trajectory_msg)
-
-        # Put data into Float64MultiArray message
+    def _publish_trajectory(self, trajectory:list) -> None:
+        """
+        Flattens trajectory to Float64MultiArray and publishes it
+        Args:
+            trajectory (list): trajectory
+        """
+        if not trajectory:
+            self.get_logger().warn("Trajectory is empty, nothing to publish.")
+            return
+        
+        # Flatten data for Float64MultiArray
         flattened_data = []
-        n_points = len(trajectory_msg.points)
-        n_joints = len(self.joint_names)
-
-        for point in trajectory_msg.points:
-            flattened_data.extend(list(point.positions))
+        for pt in trajectory:
+            flattened_data.extend(pt['positions'])
 
         array_msg = Float64MultiArray()
-
-        dim_points = MultiArrayDimension()
-        dim_points.label = "points"
-        dim_points.size = n_points
-        dim_points.stride = n_points * n_joints
-
-        dim_joints = MultiArrayDimension()
-        dim_joints.label = "joints"
-        dim_joints.size = n_joints
-        dim_joints.stride = n_joints
-
-        array_msg.layout.dim = [dim_points, dim_joints]
-        array_msg.layout.data_offset = 0
         array_msg.data = flattened_data
 
-        # Publish full trajectory at once
-        self.get_logger().info(f'Publishing full trajectory with {n_points} steps and ({len(flattened_data)} floats).')
-        self.joint_traj_pub.publish(array_msg)        
+        n_points = len(trajectory)
 
-    def _plan_joint_trajectory(self, start_q, goal_q, trajectory_msg: JointTrajectory):
-        # compute path [start_q, waypoint1, waypoint2, ..., goal_q]
-        path = self.path_planner.joint_path(start_q, goal_q)
-
-        # compute trajectory
-        raw_trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, safety_factor=0.05)
-
-        for pt in raw_trajectory:
-            point_msg = JointTrajectoryPoint()
-        
-            point_msg.positions = pt['positions']
-            point_msg.velocities = pt['velocities']
-            point_msg.accelerations = pt['accelerations']
-
-            t = pt['time']
-            duration_msg = Duration()
-            duration_msg.sec = int(t)
-            duration_msg.nanosec = int((t - int(t)) * 1e9)
-            point_msg.time_from_start = duration_msg
-        
-            trajectory_msg.points.append(point_msg)
-
-  
+        # Publish trajectory
+        self.get_logger().info(f'Publishing trajectory with {n_points} steps.')
+        self.joint_traj_pub.publish(array_msg)
 
 def main(args=None):
     rclpy.init(args=args)
