@@ -5,6 +5,19 @@
     max_samples: 30
     command_delay: 5.0
     max_retries: 5
+    joint_states_topic: /franka_state_controller/joint_states_desired
+    trajectory_finished_topic: /trajectory_finished
+    scan_complete_topic: /scanning/complete
+    joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+    motion_start_threshold: 0.002
+
+    # Model-registration capture synchronization.
+    # Cloud stitcher captures on its own after the robot settles, then publishes
+    # true on pose_capture_done_topic. capture_wait_timeout is a fallback timer.
+    pose_capture_done_topic: /cloud_stitcher/pose_capture_done
+    use_capture_feedback: true
+    capture_wait_timeout: 15.0
+    publish_pointcloud_trigger: false
 
     # Workspace bounding box for hand-eye poses [m]
     x_min: 0.40
@@ -21,13 +34,3 @@
     roll_deg: 138.8
     pitch_deg: 42.8
     yaw_deg: -104.8
-
-    # Scan poses for model registration: flat list of [x, y, z, roll_deg, pitch_deg, yaw_deg] per pose
-    model_reg_poses: [
-       0.40,  0.00, 0.50, 180.0,  0.0,   0.0,
-       0.45,  0.15, 0.50, 180.0,  0.0,  30.0,
-       0.45, -0.15, 0.50, 180.0,  0.0, -30.0,
-       0.35,  0.10, 0.55, 175.0,  5.0,  15.0,
-       0.35, -0.10, 0.55, 175.0,  5.0, -15.0,
-       0.50,  0.00, 0.45, 180.0,  0.0,   0.0,
-    ]

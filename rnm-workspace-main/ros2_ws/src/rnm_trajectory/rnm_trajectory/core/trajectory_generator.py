@@ -5,7 +5,12 @@ class QuinticTrajectoryGenerator:
     Multi-segment trajectory generator using quintic polynomials
     """
     
-    def __init__(self, joint_velocity_limits: np.ndarray, joint_acceleration_limits: np.ndarray, joint_jerk_limits: np.ndarray):
+    def __init__(
+        self,
+        joint_velocity_limits: np.ndarray,
+        joint_acceleration_limits: np.ndarray,
+        joint_jerk_limits: np.ndarray,
+    ):
         """
         Initializes the generator with physical robot joint constraints
 
@@ -14,10 +19,24 @@ class QuinticTrajectoryGenerator:
             joint_acceleration_limits (np.ndarray): Maximum allowed acceleration per joint
             joint_jerk_limits (np.ndarray): Maximum allowed jerk per joint
         """
-        self._velocity_limits = joint_velocity_limits
+        self._velocity_limits = np.asarray(joint_velocity_limits, dtype=float)
         self._joint_count = len(self._velocity_limits)
-        self._accel_limits = joint_acceleration_limits
-        self._jerk_limits = joint_jerk_limits
+        self._accel_limits = np.asarray(joint_acceleration_limits, dtype=float)
+        self._jerk_limits = np.asarray(joint_jerk_limits, dtype=float)
+
+        expected_shape = (self._joint_count,)
+        if (
+            self._velocity_limits.ndim != 1
+            or self._accel_limits.shape != expected_shape
+            or self._jerk_limits.shape != expected_shape
+        ):
+            raise ValueError("Joint limit arrays must be one-dimensional and equal length.")
+        if np.any(self._velocity_limits < 0.0):
+            raise ValueError("Joint velocity limits must be non-negative.")
+        if np.any(self._accel_limits < 0.0):
+            raise ValueError("Joint acceleration limits must be non-negative.")
+        if np.any(self._jerk_limits < 0.0):
+            raise ValueError("Joint jerk limits must be non-negative.")
     
     def _movement_time(self, start_q, goal_q, safety_factor, min_duration):
         """
@@ -34,7 +53,6 @@ class QuinticTrajectoryGenerator:
         """
 
         times = []
-        min_duration = 4.0
     
         for i in range(self._joint_count):
 
@@ -116,7 +134,7 @@ class QuinticTrajectoryGenerator:
             coefficients[i, :] = coefficients_i
         return coefficients
     
-    def _validate_trajectory(self, trajectory, dt, safety_factor):
+    def _validate_trajectory(self, trajectory, safety_factor):
         """
         Check to avoid velocity & acceleration discontinuity
 
@@ -130,12 +148,24 @@ class QuinticTrajectoryGenerator:
         """
         max_vel = np.asarray(self._velocity_limits, dtype=float) * safety_factor
         max_acc = np.asarray(self._accel_limits, dtype=float) * safety_factor
+        max_jerk = np.asarray(self._jerk_limits, dtype=float) * safety_factor
 
         for idx, pt in enumerate(trajectory):
             if np.any(np.abs(pt['velocities']) > max_vel):
                 raise ValueError(f"Velocity limit violation detected at step index {idx}.")
             if np.any(np.abs(pt['accelerations']) > max_acc):
                 raise ValueError(f"Acceleration limit violation detected at step index {idx}.")
+
+            if idx > 0:
+                previous_pt = trajectory[idx - 1]
+                time_delta = float(pt['time'] - previous_pt['time'])
+                if time_delta <= 0.0:
+                    raise ValueError(f"Non-increasing trajectory time at step index {idx}.")
+                previous_acc = np.asarray(previous_pt['accelerations'], dtype=float)
+                current_acc = np.asarray(pt['accelerations'], dtype=float)
+                jerk = (current_acc - previous_acc) / time_delta
+                if np.any(np.abs(jerk) > max_jerk):
+                    raise ValueError(f"Jerk limit violation detected at step index {idx}.")
     
     def generate_trajectory(self, path, frequency, safety_factor, min_duration):
         """
@@ -153,15 +183,25 @@ class QuinticTrajectoryGenerator:
             list: List of dictionaries containing 'time', 'positions', 'velocities',
                   and 'accelerations' arrays per time step
         """
+        if frequency <= 0.0:
+            raise ValueError("frequency must be positive.")
+
         dt = 1.0 / frequency
         path = np.asarray(path, dtype=float)
+        if not 0.0 < safety_factor <= 1.0:
+            raise ValueError("safety_factor must be in the range (0.0, 1.0].")
+        if min_duration < 0.0:
+            raise ValueError("min_duration must be non-negative.")
+        if path.ndim != 2:
+            raise ValueError("path must be a 2D array of joint waypoints.")
+        if path.shape[0] < 2:
+            raise ValueError("path must contain at least two waypoints.")
+        if path.shape[1] != self._joint_count:
+            raise ValueError(
+                f"path waypoints must contain {self._joint_count} joints, "
+                f"got {path.shape[1]}."
+            )
 
-        n_segments = len(path) - 1
-        
-        # Compute duration and coefficients of all segments
-        segment_times = []
-        segment_coefficients = []
-            
         n_segments = len(path) - 1
         
         # Segment durations
@@ -187,7 +227,6 @@ class QuinticTrajectoryGenerator:
             # Next segment mean velocities
             v_out = (path[i+1] - path[i]) / segment_times[i]
             # Waypoint mean velocities
-            mean_vel = 0.5 * (v_in + v_out)
             mean_vel = 0.5 * (v_in + v_out)
             same_direction = (v_in * v_out) >= 0.0
             waypoint_velocities[i] = np.where(same_direction, mean_vel, 0.0)
@@ -219,10 +258,11 @@ class QuinticTrajectoryGenerator:
         T = sum(segment_times)
         
         trajectory = []
-        t = 0.0
+        sample_count = int(np.ceil(T / dt)) + 1
 
         # Calculate joint p,v,a for each segment & timestep
-        while t <= T:
+        for sample_index in range(sample_count):
+            t = min(sample_index * dt, T)
             t_local = t
             current_seg = 0
             
@@ -263,10 +303,8 @@ class QuinticTrajectoryGenerator:
             }
 
             trajectory.append(point_data)
-        
-            t += dt
 
-        self._validate_trajectory(trajectory, dt, safety_factor)
+        self._validate_trajectory(trajectory, safety_factor)
         
         return trajectory
 

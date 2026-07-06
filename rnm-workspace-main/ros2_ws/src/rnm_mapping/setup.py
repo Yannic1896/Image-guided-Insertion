@@ -32,6 +32,10 @@ setup(
                 "publish_target_entry_pose_array = "
                 "rnm_mapping.target_entry_pose_array_publisher:main"
             ),
+            (
+                "post_handeye_pipeline_supervisor = "
+                "rnm_mapping.post_handeye_pipeline_supervisor:main"
+            ),
         ],
     },
 )

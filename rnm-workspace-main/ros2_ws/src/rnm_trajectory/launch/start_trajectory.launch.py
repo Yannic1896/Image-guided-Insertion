@@ -51,13 +51,14 @@ def generate_launch_description() -> LaunchDescription:
     )
     use_sim = LaunchConfiguration("use_sim")
     target_pose_topic = LaunchConfiguration("target_pose_topic")
+    joint_states_topic = LaunchConfiguration("joint_states_topic")
     ik_target_pose_topic = LaunchConfiguration("ik_target_pose_topic")
     ik_joint_goal_topic = LaunchConfiguration("ik_joint_goal_topic")
     joint_trajectory_topic = LaunchConfiguration("joint_trajectory_topic")
     planning_mode = LaunchConfiguration("planning_mode")
 
     input_joint_topic = PythonExpression([
-        "'/joint_states' if '", use_sim, "' == 'true' else '/franka_state_controller/joint_states_desired'"
+        "'/joint_states' if '", use_sim, "' == 'true' else '", joint_states_topic, "'"
     ])
 
     trajectory_node = Node(
@@ -81,6 +82,7 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription([
         target_pose_topic_arg,
+        joint_states_topic_arg,
         ik_target_pose_topic_arg,
         ik_joint_goal_topic_arg,
         joint_trajectory_topic_arg,
