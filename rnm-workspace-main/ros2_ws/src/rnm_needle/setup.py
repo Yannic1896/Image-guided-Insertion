@@ -34,7 +34,6 @@ setup(
     entry_points={
         "console_scripts": [
             "insertion_path_node = rnm_needle.insertion_path_node:main",
-            "insertion_node = rnm_needle.insertion_node:main",
         ],
     },
 )

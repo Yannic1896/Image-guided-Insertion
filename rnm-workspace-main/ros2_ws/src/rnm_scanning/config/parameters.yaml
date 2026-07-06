@@ -2,6 +2,7 @@
   ros__parameters:
     # Scanning mode: 'hand_eye' or 'model_registration'
     scanning_mode: model_registration
+    scan_complete_topic: /scanning/complete
     max_samples: 30
     command_delay: 5.0
     max_retries: 5

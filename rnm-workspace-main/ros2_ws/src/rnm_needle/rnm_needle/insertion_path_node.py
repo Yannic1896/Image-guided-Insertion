@@ -1,13 +1,15 @@
 """ ROS 2 Node for the Needle-Path_calculation (Talker and Listener)"""
 from __future__ import annotations
+from pathlib import Path
+import re
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from rclpy.exceptions import ParameterUninitializedException
 
 # Import Standard message types
-from geometry_msgs.msg import PoseArray, PoseStamped, TransformStamped
+from geometry_msgs.msg import Point, PoseArray
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 
@@ -31,6 +33,13 @@ class InsertionPathNode(Node):
         # declaring parameters
         self.declare_parameter('needle_offset_z', 0.167)
         self.declare_parameter('registration_topic', DEFAULT_REGISTRATION_TOPIC)
+        self.declare_parameter('path_topic', '/needle_path')
+        self.declare_parameter('joint_states_topic', '/joint_states')
+        self.declare_parameter('input_source', 'topic')
+        self.declare_parameter('target_location_file', 'target_output/target_location.txt')
+        self.declare_parameter('entry_location_file', 'entry_point_output/needle_entry_point.txt')
+        self.declare_parameter('entry_candidate_index', 0)
+        self.declare_parameter('file_poll_period', 0.5)
         self.declare_parameter('base_frame', DEFAULT_BASE_FRAME)
         self.declare_parameter('joint_names', DEFAULT_JOINT_NAMES)
         
@@ -47,6 +56,21 @@ class InsertionPathNode(Node):
         self._base_frame = str(self.get_parameter('base_frame').value)
         self._joint_names = [str(n) for n in self.get_parameter('joint_names').value]
         registration_topic = str(self.get_parameter('registration_topic').value)
+        path_topic = str(self.get_parameter('path_topic').value)
+        joint_states_topic = str(self.get_parameter('joint_states_topic').value)
+        self._input_source = str(self.get_parameter('input_source').value)
+        if self._input_source not in {'topic', 'file'}:
+            raise ValueError("input_source must be 'topic' or 'file'.")
+        self._target_location_file = Path(
+            str(self.get_parameter('target_location_file').value)
+        )
+        self._entry_location_file = Path(
+            str(self.get_parameter('entry_location_file').value)
+        )
+        self._entry_candidate_index = int(
+            self.get_parameter('entry_candidate_index').value
+        )
+        self._file_poll_period = float(self.get_parameter('file_poll_period').value)
 
         # 2. IKSolver mit Parametern initialisieren
         dh_params = self._load_dh_params()
@@ -67,36 +91,49 @@ class InsertionPathNode(Node):
 
         # saves reference for current robot state (IK startvalues)
         self._latest_joint_positions = None
+        self._file_input_processed = False
 
         # 3. Calculator-class initializing 
         self.calculator = InsertionPathCalculator()
 
         # 4. LISTENER (Subscriber): listen to Model_registration (used PoseArray)
-        self.registration_subsrcriber = self.create_subscription(
-            PoseArray,
-            registration_topic,
-            self.listener_callback,
-            10
-        )
+        self.registration_subsrcriber = None
+        if self._input_source == 'topic':
+            self.registration_subsrcriber = self.create_subscription(
+                PoseArray,
+                registration_topic,
+                self.listener_callback,
+                10
+            )
         # 4.2. SUBSCRIBER: receive joint angles for the IK start value
         self.joint_state_sub = self.create_subscription(
             JointState,
-            '/joint_states',
+            joint_states_topic,
             self.joint_states_callback,
             10
         )
 
         # 5. TALKER (Publisher): sends path to Trajectory Planning
-        path_topic = '/needle_path'
         self.path_publisher = self.create_publisher(
             JointTrajectory,
             path_topic,
             10
         )
+        self._file_input_timer = None
+        if self._input_source == 'file':
+            self._file_input_timer = self.create_timer(
+                max(self._file_poll_period, 0.1),
+                self._file_input_timer_callback,
+            )
 
         self.get_logger().info(
             f'rnm_needle: Kombi-Node initialisiert.\n'
-            f' -> Listening on: {registration_topic}\n'
+            f' -> Input source: {self._input_source}\n'
+            f' -> Listening on: {registration_topic if self._input_source == "topic" else "disabled"}\n'
+            f' -> Target file: {self._target_location_file}\n'
+            f' -> Entry file: {self._entry_location_file} '
+            f'(candidate {self._entry_candidate_index})\n'
+            f' -> Reading joints from: {joint_states_topic}\n'
             f' -> Publishing on: {path_topic}\n'
             f' -> Needle Offset Z: {self._needle_offset_z * 1000.0} mm'
         )
@@ -139,6 +176,95 @@ class InsertionPathNode(Node):
         # extraction of the positions in the PoseArray
         entry_point = msg.poses[0].position
         target_point = msg.poses[1].position
+        self._calculate_and_publish_path(entry_point, target_point)
+
+    def _file_input_timer_callback(self) -> None:
+        if self._file_input_processed:
+            if self._file_input_timer is not None:
+                self._file_input_timer.cancel()
+            return
+        if self._latest_joint_positions is None:
+            self.get_logger().info(
+                'Waiting for joint states before computing insertion path from files.',
+                throttle_duration_sec=5.0,
+            )
+            return
+
+        try:
+            entry_point, target_point = self._load_entry_target_from_files()
+        except RuntimeError as exc:
+            self.get_logger().error(str(exc))
+            self._file_input_processed = True
+            if self._file_input_timer is not None:
+                self._file_input_timer.cancel()
+            return
+
+        self._file_input_processed = True
+        if self._file_input_timer is not None:
+            self._file_input_timer.cancel()
+        self.get_logger().info(
+            'Loaded insertion entry/target from TXT reports; calculating path.'
+        )
+        self._calculate_and_publish_path(entry_point, target_point)
+
+    def _load_entry_target_from_files(self) -> tuple[Point, Point]:
+        target = self._read_vector_from_report(
+            self._target_location_file,
+            'scan_center_m',
+        )
+        entry = self._read_candidate_entry(
+            self._entry_location_file,
+            self._entry_candidate_index,
+        )
+        entry_point = Point(x=float(entry[0]), y=float(entry[1]), z=float(entry[2]))
+        target_point = Point(x=float(target[0]), y=float(target[1]), z=float(target[2]))
+        self.get_logger().info(
+            'Selected file entry/target: '
+            f'entry={entry.tolist()}, target={target.tolist()}'
+        )
+        return entry_point, target_point
+
+    def _read_vector_from_report(self, path: Path, key: str) -> np.ndarray:
+        if not path.exists():
+            raise RuntimeError(f'Report file does not exist: {path}')
+
+        text = path.read_text(encoding='utf-8')
+        return self._read_vector_from_text(text, key, path)
+
+    def _read_candidate_entry(self, path: Path, candidate_index: int) -> np.ndarray:
+        if candidate_index < 0:
+            raise RuntimeError('entry_candidate_index must be non-negative.')
+        if not path.exists():
+            raise RuntimeError(f'Entry report file does not exist: {path}')
+
+        text = path.read_text(encoding='utf-8')
+        block = self._candidate_block(text, candidate_index)
+        if block is not None:
+            return self._read_vector_from_text(block, 'entry_point_m', path)
+        if candidate_index == 0:
+            return self._read_vector_from_text(text, 'entry_point_m', path)
+        raise RuntimeError(f'Could not find [candidate_{candidate_index}] in {path}')
+
+    def _candidate_block(self, text: str, candidate_index: int) -> str | None:
+        pattern = (
+            rf'^\[candidate_{candidate_index}\]\s*$'
+            r'(?P<body>.*?)(?=^\[candidate_\d+\]\s*$|\Z)'
+        )
+        match = re.search(pattern, text, flags=re.MULTILINE | re.DOTALL)
+        if match is None:
+            return None
+        return match.group('body')
+
+    def _read_vector_from_text(self, text: str, key: str, path: Path) -> np.ndarray:
+        match = re.search(rf'^{re.escape(key)}:\s*\[([^\]]+)\]', text, flags=re.MULTILINE)
+        if match is None:
+            raise RuntimeError(f'Could not find {key} in {path}')
+        vector = np.fromstring(match.group(1), sep=',', dtype=np.float64)
+        if len(vector) != 3:
+            raise RuntimeError(f'Invalid {key} vector in {path}')
+        return vector
+
+    def _calculate_and_publish_path(self, entry_point: Point, target_point: Point) -> None:
         # calling the logic from insertion_path.py including the offset
         calculated_poses = self.calculator.compute_path(
             entry_point,

@@ -34,7 +34,6 @@ class QuinticTrajectoryGenerator:
         """
 
         times = []
-        min_duration = 4.0
     
         for i in range(self._joint_count):
 

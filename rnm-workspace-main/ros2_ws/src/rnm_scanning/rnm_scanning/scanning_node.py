@@ -9,6 +9,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped, Quaternion
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool, Float64MultiArray, UInt64
 
 
@@ -19,6 +20,7 @@ class ScanningNode(Node):
         self.declare_parameter(
             "scanning_mode", "hand_eye"
         )  # 'hand_eye' or 'model_registration'
+        self.declare_parameter("scan_complete_topic", "/scanning/complete")
         self.declare_parameter("max_samples", 30)
         self.declare_parameter("command_delay", 5.0)
         self.declare_parameter("max_retries", 5)
@@ -47,6 +49,7 @@ class ScanningNode(Node):
         self.declare_parameter("stitching_poses_file", _default_poses_file)
 
         self.scanning_mode = self.get_parameter("scanning_mode").value
+        scan_complete_topic = self.get_parameter("scan_complete_topic").value
         self.max_samples = self.get_parameter("max_samples").value
         self.command_delay = self.get_parameter("command_delay").value
         self.max_retries = self.get_parameter("max_retries").value
@@ -82,6 +85,7 @@ class ScanningNode(Node):
         self.number_retries = 0         #number of times we resend the same pose 
         self.current_target_msg = None  # for hand-eye
         self.current_joint_msg = None  # for model-registration
+        self.scan_complete_published = False
 
         # Subscribers
         self.detect_sub = self.create_subscription(
@@ -101,6 +105,12 @@ class ScanningNode(Node):
         )
         self.trigger_pointcloud_pub = self.create_publisher(
             Bool, "/trigger_pointcloud_capture", 10
+        )
+        scan_complete_qos = QoSProfile(depth=1)
+        scan_complete_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+        scan_complete_qos.reliability = ReliabilityPolicy.RELIABLE
+        self.scan_complete_pub = self.create_publisher(
+            Bool, scan_complete_topic, scan_complete_qos
         )
 
         self.get_logger().info(f"Scanning Node started in [{self.scanning_mode}] mode.")
@@ -158,6 +168,7 @@ class ScanningNode(Node):
                     self.get_logger().info(
                         "Hand-eye calibration data collection complete."
                     )
+                    self._publish_scan_complete()
                     return
             else:
 
@@ -175,6 +186,7 @@ class ScanningNode(Node):
 
             if self.model_reg_index >= len(self.model_reg_joints):
                 self.get_logger().info("Scanning complete — all point clouds captured.")
+                self._publish_scan_complete()
                 return
 
         self.send_next_target()
@@ -231,6 +243,7 @@ class ScanningNode(Node):
         elif self.scanning_mode == "model_registration":
             if self.model_reg_index >= len(self.model_reg_joints):
                 self.get_logger().info("No more poses left.")
+                self._publish_scan_complete()
                 return
             joints = self.model_reg_joints[self.model_reg_index]
             self.get_logger().info(
@@ -251,6 +264,14 @@ class ScanningNode(Node):
             docs = [d for d in yaml.safe_load_all(f) if d and "position" in d]
         self.get_logger().info(f"Loaded {len(docs)} stitching poses from '{path}'")
         return [doc["position"] for doc in docs]
+
+    def _publish_scan_complete(self) -> None:
+        if self.scan_complete_published:
+            return
+        self.scan_complete_published = True
+        msg = Bool()
+        msg.data = True
+        self.scan_complete_pub.publish(msg)
 
     def euler_to_quaternion(self, roll: float, pitch: float, yaw: float) -> Quaternion:
         cy = math.cos(yaw * 0.5)

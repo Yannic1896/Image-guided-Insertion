@@ -4,7 +4,7 @@ cloud_stitcher:
     stitched_cloud_topic: /stitched_cloud
     pose_capture_done_topic: /cloud_stitcher/pose_capture_done
     target_frame: panda_link0
-    output_path: /workspaces/RNM/rnm-workspace-main/stitched_cloud.ply
+    output_path: /workspaces/rnm-documents-primary/stitched_cloud.ply
 
     # Accept clouds only after the camera pose has stayed within these limits.
     # false accepts multiple clouds at each settled pose for depth-noise averaging.
