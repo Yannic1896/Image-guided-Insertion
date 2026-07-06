@@ -3,7 +3,8 @@
     # Scanning mode: 'hand_eye' or 'model_registration'
     scanning_mode: model_registration
     max_samples: 30
-    delay_between_scans: 3.0
+    command_delay: 5.0
+    max_retries: 5
 
     # Workspace bounding box for hand-eye poses [m]
     x_min: 0.40
