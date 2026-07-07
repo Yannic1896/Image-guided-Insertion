@@ -8,9 +8,9 @@
 # ros2 launch rnm_mapping model_target_entry_pipeline.launch.py
 
 model_registration:
-  scan: /workspaces/rnm-documents-primary/stitched_cloud.ply
-  model: /workspaces/rnm-documents-primary/scanning_bag/Skeleton_Target.stl
-  output_dir: /workspaces/rnm-documents-primary/registration_output
+  scan: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/stitched_cloud.ply
+  model: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
+  output_dir: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/registration_output
 
   model_scale: 0.001
   model_sample_count: 120000
@@ -32,10 +32,10 @@ model_registration:
   random_seed: 7
 
 target_locator:
-  model: /workspaces/rnm-documents-primary/scanning_bag/Skeleton_Target.stl
-  model_to_scan_transform: /workspaces/rnm-documents-primary/registration_output/model_to_scan_transform.txt
-  scan: /workspaces/rnm-documents-primary/stitched_cloud.ply
-  output_dir: /workspaces/rnm-documents-primary/target_output
+  model: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/scanning_bag/Skeleton_Target.stl
+  model_to_scan_transform: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/registration_output/model_to_scan_transform.txt
+  scan: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/stitched_cloud.ply
+  output_dir: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/target_output
 
   model_scale: 0.001
   model_sample_count: 180000
@@ -51,7 +51,7 @@ target_locator:
 
 needle_entry_planner:
   # Detailed needle-entry tuning stays in this file.
-  config: /workspaces/rnm-documents-primary/ros2_ws/src/rnm_mapping/config/needle_entry_planner.yaml
+  config: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/ros2_ws/src/rnm_mapping/config/needle_entry_planner.yaml
 
   # Optional final overrides, passed after --config. Example:
   # extra_args: [--max-entry-candidates, 20]
@@ -59,8 +59,8 @@ needle_entry_planner:
 
 pose_array_publisher:
   publish: false
-  target_location: /workspaces/rnm-documents-primary/target_output/target_location.txt
-  entry_location: /workspaces/rnm-documents-primary/entry_point_output/needle_entry_point.txt
+  target_location: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/target_output/target_location.txt
+  entry_location: /home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/entry_point_output/needle_entry_point.txt
 
   # Candidate 0 is the chosen entry point written in the ranked candidates block.
   entry_candidate_index: 0
