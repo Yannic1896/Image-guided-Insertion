@@ -22,7 +22,7 @@ def generate_launch_description() -> LaunchDescription:
     joint_states_topic_arg = DeclareLaunchArgument(
         "joint_states_topic",
         default_value="/franka_state_controller/joint_states_desired",
-        description="Joint states topic to subscribe to.",
+        description="Actual joint states topic to use as trajectory start state.",
     )
     ik_target_pose_topic_arg = DeclareLaunchArgument(
         "ik_target_pose_topic",

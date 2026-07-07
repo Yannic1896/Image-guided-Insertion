@@ -30,7 +30,8 @@ class TrajectoryPlanningNode(Node):
         self.declare_parameter('joint_velocity_limits', [0.0])
         self.declare_parameter('joint_acceleration_limits', [0.0])
         self.declare_parameter('joint_jerk_limits', [0.0])
-        self.declare_parameter('safety_factor', 0.25)
+        self.declare_parameter('safety_factor', 0.10)
+        self.declare_parameter('ik_min_duration', 6.0)
         self.declare_parameter('split_needle_approach', True)
         self.declare_parameter('use_staging_pose', False)
         self.declare_parameter('staging_joint_pose', [0.0, -0.6, 0.0, -2.2, 0.0, 1.8, 0.8])
@@ -63,6 +64,7 @@ class TrajectoryPlanningNode(Node):
         needle_path_topic = self.get_parameter('needle_path_topic').value
         trajectory_finished_topic = self.get_parameter('trajectory_finished_topic').value
         self.joint_names = self.get_parameter('joint_names').value
+        self.ik_min_duration = float(self.get_parameter('ik_min_duration').value)
         self.split_needle_approach = bool(self.get_parameter('split_needle_approach').value)
         self.use_staging_pose = bool(self.get_parameter('use_staging_pose').value)
         self.staging_joint_pose = list(self.get_parameter('staging_joint_pose').value)
@@ -218,7 +220,12 @@ class TrajectoryPlanningNode(Node):
 
         # Compute trajectory
         try:
-            trajectory = self.generator.generate_trajectory(path, self.publish_rate_hz, self.safety_factor, min_duration=4.0)
+            trajectory = self.generator.generate_trajectory(
+                path,
+                self.publish_rate_hz,
+                self.safety_factor,
+                min_duration=self.ik_min_duration,
+            )
             self._publish_trajectory(trajectory)
         except ValueError as e:
             self.get_logger().error(f"Trajectory validation failed: {str(e)}")
