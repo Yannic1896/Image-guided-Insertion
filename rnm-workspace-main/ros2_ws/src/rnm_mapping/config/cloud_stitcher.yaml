@@ -2,7 +2,6 @@ cloud_stitcher:
   ros__parameters:
     cloud_topic: /k4a/points2
     stitched_cloud_topic: /stitched_cloud
-    pose_capture_done_topic: /cloud_stitcher/pose_capture_done
     target_frame: panda_link0
     output_path: /workspaces/rnm-documents-primary/stitched_cloud.ply
 
