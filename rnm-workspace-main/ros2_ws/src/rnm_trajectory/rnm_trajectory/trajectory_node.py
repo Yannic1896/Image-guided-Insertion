@@ -286,12 +286,14 @@ class TrajectoryPlanningNode(Node):
 
             self.get_logger().info('Generating needle insertion trajectory...')
             insertion_path = needle_path[1:]
-            insertion_traj = self.generator.generate_trajectory(
-                insertion_path,
-                self.publish_rate_hz,
-                self.safety_factor,
-                min_duration=self.needle_insertion_min_duration,
-            )
+            insertion_traj = []
+            if len(insertion_path) > 1:
+                insertion_traj = self.generator.generate_trajectory(
+                    insertion_path,
+                    self.publish_rate_hz,
+                    self.safety_factor,
+                    min_duration=self.needle_insertion_min_duration,
+                )
 
             insertion_trajectory = self._concatenate_trajectories([
                 pre_to_entry_traj,

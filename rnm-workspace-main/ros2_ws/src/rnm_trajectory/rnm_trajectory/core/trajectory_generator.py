@@ -169,9 +169,7 @@ class QuinticTrajectoryGenerator:
     
     def generate_trajectory(self, path, frequency, safety_factor, min_duration):
         """
-        Generates discretized multi-segment trajectory from joint path
-
-        Estimates continuous intermediate waypoint velocities and accelerations
+        Generates discretized multi-segment trajectory from joint path.
 
         Args:
             path (np.ndarray): Array of joint waypoints
@@ -210,33 +208,10 @@ class QuinticTrajectoryGenerator:
             T_seg = self._movement_time(path[k], path[k+1], safety_factor, min_duration)
             segment_times.append(T_seg)
             
-        # Waypoint velocities & accelerations
+        # Keep each waypoint as a full stop. This preserves the earlier
+        # conservative behavior while retaining validation and min_duration.
         waypoint_velocities = [np.zeros_like(path[0]) for _ in range(len(path))]
         waypoint_accelerations = [np.zeros_like(path[0]) for _ in range(len(path))]
-        
-        # Start & end velocities & accelerations = 0
-        waypoint_velocities[0] = np.zeros_like(path[0])
-        waypoint_accelerations[0] = np.zeros_like(path[0])
-        waypoint_velocities[n_segments] = np.zeros_like(path[0])
-        waypoint_accelerations[n_segments] = np.zeros_like(path[0])
-        
-        # Intermediate waypoint velocities & accelerations
-        for i in range(1, n_segments):
-            # Previous segment mean velocities
-            v_in = (path[i] - path[i-1]) / segment_times[i-1]
-            # Next segment mean velocities
-            v_out = (path[i+1] - path[i]) / segment_times[i]
-            # Waypoint mean velocities
-            mean_vel = 0.5 * (v_in + v_out)
-            same_direction = (v_in * v_out) >= 0.0
-            waypoint_velocities[i] = np.where(same_direction, mean_vel, 0.0)
-
-            # Previous segment mean accelerations
-            a_in = (waypoint_velocities[i] - waypoint_velocities[i-1]) / segment_times[i-1]
-            # Next segment mean accelerations
-            a_out = (waypoint_velocities[i+1] - waypoint_velocities[i]) / segment_times[i]
-            # Waypoint mean accelerations
-            waypoint_accelerations[i] = 0.5 * (a_in + a_out)
 
         # Compute polynomial coefficients
         segment_coefficients = []
