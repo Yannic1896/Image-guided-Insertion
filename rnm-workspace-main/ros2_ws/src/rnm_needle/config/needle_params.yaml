@@ -1,6 +1,6 @@
 /insertion_path_node:
   ros__parameters:
-    needle_offset_z: 0.167
+    needle_offset_z: 0.17
     registration_topic: "/needle_poses"
     path_topic: "/needle_path"
     joint_states_topic: "/franka_state_controller/joint_states_desired"

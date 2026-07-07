@@ -96,6 +96,7 @@ class InsertionPathCalculator:
 
     def _calculate_quaternion_to_vector(self, ux: float, uy: float, uz: float) -> tuple[float, float, float, float]:
         """Helper function to calculate a quaternion rotating the Z-axis to the direction vector."""
+        # calculate the axis of rotation (cross product of Z-axis and direction vector) 
         ax = -uy
         ay = ux
         az = 0.0
@@ -104,6 +105,8 @@ class InsertionPathCalculator:
 
         # transforning the angle to quaternion
         # for stability using the half-way methode
+        # standard quaternion: q = [ax * sin(theta/2), ay * sin(theta/2), az * sin(theta/2), cos(theta/2)]- computing cos and sin directly is comutationally expensive and leads to rounding errors 
+        # half-way methode: rotation quaternion constructed by adding 2 vectors, the z-axis and the target vector
         qw = dot + 1.0
 
         if qw < 1e-6:

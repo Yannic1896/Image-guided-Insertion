@@ -31,7 +31,7 @@ class InsertionPathNode(Node):
         super().__init__('insertion_path_node')
 
         # declaring parameters
-        self.declare_parameter('needle_offset_z', 0.167)
+        self.declare_parameter('needle_offset_z', 0.17)
         self.declare_parameter('registration_topic', DEFAULT_REGISTRATION_TOPIC)
         self.declare_parameter('path_topic', '/needle_path')
         self.declare_parameter('joint_states_topic', '/joint_states')
