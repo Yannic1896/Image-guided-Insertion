@@ -5,6 +5,8 @@
     max_samples: 30
     command_delay: 5.0
     max_retries: 5
+    joint_feedback_timeout: 1.0
+    trajectory_goal_tolerance: 0.01
     joint_states_topic: /franka_state_controller/joint_states_desired
     trajectory_finished_topic: /trajectory_finished
     scan_complete_topic: /scanning/complete

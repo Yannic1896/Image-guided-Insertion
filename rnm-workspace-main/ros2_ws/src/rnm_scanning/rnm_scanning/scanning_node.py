@@ -48,6 +48,8 @@ class ScanningNode(Node):
         self.declare_parameter("max_samples", 30)
         self.declare_parameter("command_delay", 5.0)
         self.declare_parameter("max_retries", 5)
+        self.declare_parameter("joint_feedback_timeout", 1.0)
+        self.declare_parameter("trajectory_goal_tolerance", 0.01)
 
         # Bounding box of robot workspace
         self.declare_parameter("x_min", 0.40)
@@ -81,6 +83,12 @@ class ScanningNode(Node):
         self.max_samples = self.get_parameter("max_samples").value
         self.command_delay = self.get_parameter("command_delay").value
         self.max_retries = self.get_parameter("max_retries").value
+        self.joint_feedback_timeout = self.get_parameter(
+            "joint_feedback_timeout"
+        ).value
+        self.trajectory_goal_tolerance = self.get_parameter(
+            "trajectory_goal_tolerance"
+        ).value
         joint_states_topic = self.get_parameter("joint_states_topic").value
         trajectory_finished_topic = self.get_parameter(
             "trajectory_finished_topic"
@@ -130,10 +138,14 @@ class ScanningNode(Node):
         self.current_target_msg = None  # for hand-eye
         self.current_joint_msg = None  # for model-registration
         self.current_joint_positions = None
+        self.current_goal_positions = None
+        self.last_joint_feedback_time = None
         self.motion_start_reference = None
         self.capture_done_state = False
         self.capture_feedback_reset_seen = True
         self.stale_capture_warning_logged = False
+        self.stale_joint_feedback_warning_logged = False
+        self.finished_before_goal_warning_logged = False
         self.missing_joint_names_warning_logged = False
         self.workflow_state = "idle"
         self.scan_complete_published = False
@@ -173,8 +185,9 @@ class ScanningNode(Node):
         self.get_logger().info(
             f"Scanning Node started in [{self.scanning_mode}] mode."
         )
-
-        self.send_next_target()
+        self.get_logger().info(
+            "Waiting for first joint-state sample before sending scan target."
+        )
 
     # ------------------------------------------------------------------
     # Subscriber callbacks
@@ -189,12 +202,23 @@ class ScanningNode(Node):
             return
 
         self.current_joint_positions = positions
+        self.last_joint_feedback_time = self.get_clock().now()
+        if self.workflow_state == "idle":
+            self.send_next_target()
+            return
+
         if self.workflow_state == "waiting_motion_start":
             if self.motion_start_reference is None:
                 self.motion_start_reference = list(positions)
                 return
             if self._motion_has_started():
                 self._handle_motion_started()
+
+        if (
+            self.workflow_state in {"waiting_motion_start", "waiting_motion_finish"}
+            and self._has_arrived()
+        ):
+            self._handle_arrival()
 
     def trajectory_finished_callback(self, msg: UInt64) -> None:
         # /trajectory_finished is a UInt64 counter that increments for every trajectory completion
@@ -227,8 +251,35 @@ class ScanningNode(Node):
                 )
 
     def _has_arrived(self) -> bool:
-        # Compare if new trajectory finished
-        return self.last_finished_count > self.count_at_last_send
+        if self.last_finished_count <= self.count_at_last_send:
+            return False
+
+        if self._goal_reached():
+            return True
+
+        if not self.finished_before_goal_warning_logged:
+            self.finished_before_goal_warning_logged = True
+            self.get_logger().warn(
+                "trajectory_finished advanced before joint feedback reached "
+                "the commanded scan goal; waiting for goal tolerance before "
+                "continuing."
+            )
+        return False
+
+    def _goal_reached(self) -> bool:
+        if self.scanning_mode != "model_registration":
+            return True
+
+        if self.current_goal_positions is None or self.current_joint_positions is None:
+            return False
+
+        deltas = [
+            abs(current - goal)
+            for current, goal in zip(
+                self.current_joint_positions, self.current_goal_positions
+            )
+        ]
+        return max(deltas, default=float("inf")) <= self.trajectory_goal_tolerance
 
     def _motion_has_started(self) -> bool:
         if self.motion_start_reference is None or self.current_joint_positions is None:
@@ -240,6 +291,14 @@ class ScanningNode(Node):
             )
         ]
         return max(deltas, default=0.0) >= self.motion_start_threshold
+
+    def _joint_feedback_is_fresh(self) -> bool:
+        if self.last_joint_feedback_time is None:
+            return False
+        age = (
+            self.get_clock().now() - self.last_joint_feedback_time
+        ).nanoseconds / 1e9
+        return age <= self.joint_feedback_timeout
 
     def _cancel_resend_timer(self) -> None:
         if self.resend_timer is not None:
@@ -289,6 +348,15 @@ class ScanningNode(Node):
 
         if self._motion_has_started():
             self._handle_motion_started()
+            return
+
+        if not self._joint_feedback_is_fresh():
+            if not self.stale_joint_feedback_warning_logged:
+                self.stale_joint_feedback_warning_logged = True
+                self.get_logger().warn(
+                    "Joint feedback is stale; not resending trajectory because "
+                    "robot motion state cannot be confirmed."
+                )
             return
 
         if self.number_retries >= self.max_retries:
@@ -427,6 +495,8 @@ class ScanningNode(Node):
         )
         self.capture_feedback_reset_seen = not self.capture_done_state
         self.stale_capture_warning_logged = False
+        self.stale_joint_feedback_warning_logged = False
+        self.finished_before_goal_warning_logged = False
 
         self._cancel_resend_timer()
         self._cancel_capture_wait_timer()
@@ -463,6 +533,7 @@ class ScanningNode(Node):
             target_msg.pose.orientation = self.euler_to_quaternion(roll, pitch, yaw)
 
             self.current_target_msg = target_msg
+            self.current_goal_positions = None
             self.target_pub.publish(target_msg)
             self.resend_timer = self.create_timer(
                 self.command_delay, self._resend_current_command
@@ -485,6 +556,7 @@ class ScanningNode(Node):
             joint_msg.data = joints
 
             self.current_joint_msg = joint_msg
+            self.current_goal_positions = list(joints)
             self.ik_joint_goal_pub.publish(joint_msg)
             self.resend_timer = self.create_timer(
                 self.command_delay, self._resend_current_command
