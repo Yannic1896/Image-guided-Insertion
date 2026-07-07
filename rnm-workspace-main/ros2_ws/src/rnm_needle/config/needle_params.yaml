@@ -4,6 +4,7 @@
     registration_topic: "/needle_poses"
     path_topic: "/needle_path"
     joint_states_topic: "/franka_state_controller/joint_states_desired"
+    #joint_states_topic: "/joint_states"
     input_source: "topic"
     target_location_file: "/workspaces/rnm-documents-primary/target_output/target_location.txt"
     entry_location_file: "/workspaces/rnm-documents-primary/entry_point_output/needle_entry_point.txt"

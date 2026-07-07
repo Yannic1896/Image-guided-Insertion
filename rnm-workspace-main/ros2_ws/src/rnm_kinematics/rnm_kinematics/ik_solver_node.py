@@ -135,8 +135,21 @@ class IKSolverNode(Node):
             raise ValueError(
                 'joint_limit_upper must have one value for each configured joint name.'
             )
+        
+        lower_limits = np.array(lower_values, dtype=float)
+        upper_limits = np.array(upper_values, dtype=float)
 
-        return np.array(lower_values, dtype=float), np.array(upper_values, dtype=float)
+        # Calculate the total range for each joint
+        joint_ranges = upper_limits - lower_limits
+
+        # Define a 5% safety buffer
+        buffer = joint_ranges * 0.05
+
+        # Shrink the bounds inward
+        safe_lower_limits = lower_limits + buffer
+        safe_upper_limits = upper_limits - buffer
+
+        return safe_lower_limits, safe_upper_limits
 
     def _get_array_parameter(self, name: str) -> list[float]:
         try:

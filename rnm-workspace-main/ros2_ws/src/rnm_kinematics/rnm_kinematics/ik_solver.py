@@ -79,8 +79,18 @@ class IKSolver:
             )
         if np.any(lower >= upper):
             raise ValueError('Each lower joint limit must be smaller than its upper limit')
+        
+        # Calculate the total range for each joint element-wise
+        joint_ranges = upper - lower
 
-        return lower, upper
+        # Define 5% buffer per joint
+        buffer = joint_ranges * 0.05
+
+        # Shrink the bounds inward safely
+        safe_lower = lower + buffer
+        safe_upper = upper - buffer
+
+        return safe_lower, safe_upper
 
     def _initial_joint_angles(self, initial_guess: Optional[np.ndarray]) -> np.ndarray:
         """Build the starting joint vector, using limits when no guess is available."""
