@@ -6,7 +6,6 @@ import argparse
 import os
 import signal
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,11 +53,12 @@ class PostHandeyePipelineSupervisor(Node):
             if not self._run_blocking("model_target_entry_pipeline", self._mapping_command()):
                 return 1
 
-            if self._args.wait_for_keypress:
+            if self._args.needle_mount_delay_sec > 0.0:
                 self.get_logger().info(
-                    "Mount the needle now. Press Enter here to start insertion path planning."
+                    "Mount the needle now. Starting insertion path planning in "
+                    f"{self._args.needle_mount_delay_sec:.1f} seconds."
                 )
-                sys.stdin.readline()
+                time.sleep(self._args.needle_mount_delay_sec)
 
             insertion = self._start_process("insertion_path", self._insertion_command())
             self.get_logger().info(
@@ -265,8 +265,7 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scan-timeout-sec", type=float, default=0.0)
     parser.add_argument("--save-service-timeout-sec", type=float, default=20.0)
     parser.add_argument("--shutdown-timeout-sec", type=float, default=5.0)
-    parser.add_argument("--no-keypress", dest="wait_for_keypress", action="store_false")
-    parser.set_defaults(wait_for_keypress=True)
+    parser.add_argument("--needle-mount-delay-sec", type=float, default=15.0)
     return parser
 
 
