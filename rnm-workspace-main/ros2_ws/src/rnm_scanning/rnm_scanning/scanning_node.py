@@ -125,13 +125,15 @@ class ScanningNode(Node):
         self.start_pitch = math.radians(self.get_parameter("pitch_deg").value)
         self.start_yaw = math.radians(self.get_parameter("yaw_deg").value)
         self.max_orientation_tweak = math.radians(5.0)
+        self.center_x = self.get_parameter("center_x").value
+        self.center_y = self.get_parameter("center_y").value
+        self.center_z = self.get_parameter("center_z").value
 
         self.chessboard_visible = False
         self.startPoseSend = False
         self.sample_count = 0
         self.model_reg_index = 0
-        self.resend_timer = None
-        self.capture_wait_timer = None
+        self.active_timer = None
         self.last_finished_count = -1
         self.count_at_last_send = -1
         self.number_retries = 0
@@ -300,15 +302,10 @@ class ScanningNode(Node):
         ).nanoseconds / 1e9
         return age <= self.joint_feedback_timeout
 
-    def _cancel_resend_timer(self) -> None:
-        if self.resend_timer is not None:
-            self.resend_timer.cancel()
-            self.resend_timer = None
-
-    def _cancel_capture_wait_timer(self) -> None:
-        if self.capture_wait_timer is not None:
-            self.capture_wait_timer.cancel()
-            self.capture_wait_timer = None
+    def _cancel_active_timer(self) -> None:
+        if self.active_timer is not None:
+            self.active_timer.cancel()
+            self.active_timer = None
 
     def _handle_motion_started(self) -> None:
         if self.workflow_state != "waiting_motion_start":
@@ -316,7 +313,7 @@ class ScanningNode(Node):
         if self._has_arrived():
             self._handle_arrival()
             return
-        self._cancel_resend_timer()
+        self._cancel_active_timer()
         self.workflow_state = "waiting_motion_finish"
         if self.scanning_mode == "model_registration":
             self.get_logger().info(
@@ -334,12 +331,12 @@ class ScanningNode(Node):
             "waiting_motion_finish",
         }:
             return
-        self._cancel_resend_timer()
+        self._cancel_active_timer()
         self.scanning_loop()
     
     def _resend_current_command(self) -> None:
         if self.workflow_state != "waiting_motion_start":
-            self._cancel_resend_timer()
+            self._cancel_active_timer()
             return
 
         if self._has_arrived():
@@ -360,7 +357,7 @@ class ScanningNode(Node):
             return
 
         if self.number_retries >= self.max_retries:
-            self._cancel_resend_timer()
+            self._cancel_active_timer()
             self.workflow_state = "failed"
             self.get_logger().error(
                 "Robot did not start moving after "
@@ -440,8 +437,8 @@ class ScanningNode(Node):
             )
 
         if self.capture_wait_timeout > 0.0:
-            self._cancel_capture_wait_timer()
-            self.capture_wait_timer = self.create_timer(
+            self._cancel_active_timer()
+            self.active_timer = self.create_timer(
                 self.capture_wait_timeout,
                 self._capture_wait_timeout_callback,
             )
@@ -450,7 +447,7 @@ class ScanningNode(Node):
 
     def _capture_wait_timeout_callback(self) -> None:
         if self.workflow_state != "waiting_capture":
-            self._cancel_capture_wait_timer()
+            self._cancel_active_timer()
             return
 
         if self.use_capture_feedback:
@@ -464,7 +461,7 @@ class ScanningNode(Node):
         if self.workflow_state != "waiting_capture":
             return
 
-        self._cancel_capture_wait_timer()
+        self._cancel_active_timer()
         self.get_logger().info(
             f"Point cloud capture complete for scan point "
             f"{self.model_reg_index + 1}/{len(self.model_reg_joints)} "
@@ -498,8 +495,7 @@ class ScanningNode(Node):
         self.stale_joint_feedback_warning_logged = False
         self.finished_before_goal_warning_logged = False
 
-        self._cancel_resend_timer()
-        self._cancel_capture_wait_timer()
+        self._cancel_active_timer()
 
         if self.scanning_mode == "hand_eye":
             self.workflow_state = "waiting_motion_start"
@@ -508,9 +504,9 @@ class ScanningNode(Node):
             target_msg.header.frame_id = "panda_link0"
 
             if not self.startPoseSend:
-                x = self.get_parameter("center_x").value
-                y = self.get_parameter("center_y").value
-                z = self.get_parameter("center_z").value
+                x = self.center_x
+                y = self.center_y
+                z = self.center_z
                 roll = self.start_roll
                 pitch = self.start_pitch
                 yaw = self.start_yaw
@@ -535,7 +531,7 @@ class ScanningNode(Node):
             self.current_target_msg = target_msg
             self.current_goal_positions = None
             self.target_pub.publish(target_msg)
-            self.resend_timer = self.create_timer(
+            self.active_timer = self.create_timer(
                 self.command_delay, self._resend_current_command
             )
 
@@ -558,7 +554,7 @@ class ScanningNode(Node):
             self.current_joint_msg = joint_msg
             self.current_goal_positions = list(joints)
             self.ik_joint_goal_pub.publish(joint_msg)
-            self.resend_timer = self.create_timer(
+            self.active_timer = self.create_timer(
                 self.command_delay, self._resend_current_command
             )
 
