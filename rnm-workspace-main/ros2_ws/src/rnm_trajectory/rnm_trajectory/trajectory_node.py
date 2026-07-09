@@ -4,8 +4,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray
-from std_msgs.msg import UInt64
+from std_msgs.msg import Float64MultiArray, UInt64
 from trajectory_msgs.msg import JointTrajectory
 from .core.trajectory_generator import QuinticTrajectoryGenerator
 from .core.joint_path import JointPath
@@ -126,8 +125,6 @@ class TrajectoryPlanningNode(Node):
         self.joint_traj_pub = self.create_publisher(Float64MultiArray, joint_trajectory_topic, 10)
 
         self.publish_rate_hz = 1000 # Robot needs 1000Hz
-        self.trajectory_to_publish = []
-        self.trajectory_publish_index = 0
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(

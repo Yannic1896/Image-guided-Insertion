@@ -19,7 +19,7 @@
     trajectory_validation_retry_duration_increment: 2.0
     split_needle_approach: true
     use_staging_pose: false
-    staging_joint_pose: [0.0, -0.6, 0.0, -2.2, 0.0, 1.8, 0.8]
+    staging_joint_pose: [0.23454011351937187, -0.2388965321990601, 0.6163483864610644, -0.4183934884553381, 0.637256512234571, -0.09072308379185848, 0.6407966514426385]
     needle_approach_min_duration: 8.0
     needle_pre_entry_min_duration: 2.0
     needle_insertion_min_duration: 0.3
