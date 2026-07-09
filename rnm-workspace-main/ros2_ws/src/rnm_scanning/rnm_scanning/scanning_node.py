@@ -63,9 +63,9 @@ class ScanningNode(Node):
         self.declare_parameter("center_y", 0.0)
         self.declare_parameter("center_z", 0.6)
 
-        self.declare_parameter("roll_deg", 138.8)
-        self.declare_parameter("pitch_deg", 42.8)
-        self.declare_parameter("yaw_deg", -104.8)
+        self.declare_parameter("roll_deg", -90.0)
+        self.declare_parameter("pitch_deg", 45.0)
+        self.declare_parameter("yaw_deg", -90.0)
 
         _default_poses_file = os.path.join(
             get_package_share_directory("rnm_scanning"),
