@@ -4,19 +4,19 @@
     registration_topic: "/needle_poses"
     path_topic: "/needle_path"
     joint_states_topic: "/franka_state_controller/joint_states_desired"
-    #joint_states_topic: "/joint_states"
-    input_source: "topic"
-    target_location_file: "/workspaces/rnm-documents-primary/target_output/target_location.txt"
-    entry_location_file: "/workspaces/rnm-documents-primary/entry_point_output/needle_entry_point.txt"
+    input_source: "file"
+    target_location_file: "/home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/target_output/target_location.txt"
+    entry_location_file: "/home/rnm_tuesday/Downloads/nassif/RNM/rnm-workspace-main/entry_point_output/needle_entry_point.txt"
     entry_candidate_index: 0
     file_poll_period: 0.5
     base_frame: "panda_link0"
-# /**:
- #   ros__parameters:
-  #      joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
-   #     joint_states_topic: /franka_state_controller/joint_states_desired
-    #    target_pose_topic: /ik_target_pose
-     #   command_topic: /ik_joint_goal
-        #command_topic: /joint_position_example_controller/joint_command
-       
-   
+    preferred_ik_seed: [0.0, -0.6, 0.0, -2.2, 0.0, 1.8, 0.8]
+    ik_seed_delta: 0.35
+    max_pre_entry_joint_delta: 2.0
+    max_waypoint_joint_delta: 0.8
+    min_joint_limit_margin: 0.05
+    collision_check_enabled: true
+    min_self_collision_distance: 0.03
+    min_table_z: -0.05
+    collision_forbidden_sphere_centers: [0.0, 0.0, 0.0]
+    collision_forbidden_sphere_radii: [0.0]

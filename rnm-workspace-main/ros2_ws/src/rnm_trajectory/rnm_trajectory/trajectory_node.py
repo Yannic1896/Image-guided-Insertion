@@ -1,14 +1,11 @@
 """Trajectory planning node."""
 
-import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped, PoseArray
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray, MultiArrayLayout, MultiArrayDimension
-from std_msgs.msg import UInt64
-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from builtin_interfaces.msg import Duration
+from std_msgs.msg import Float64MultiArray, UInt64
+from trajectory_msgs.msg import JointTrajectory
 from .core.trajectory_generator import QuinticTrajectoryGenerator
 from .core.joint_path import JointPath
 
@@ -32,14 +29,20 @@ class TrajectoryPlanningNode(Node):
         self.declare_parameter('joint_velocity_limits', [0.0])
         self.declare_parameter('joint_acceleration_limits', [0.0])
         self.declare_parameter('joint_jerk_limits', [0.0])
-        self.declare_parameter('safety_factor', 0.25)
-        self.declare_parameter('ik_min_duration', 4.0)
-        self.declare_parameter('needle_approach_min_duration', 4.0)
+        self.declare_parameter('safety_factor', 0.10)
+        self.declare_parameter('ik_min_duration', 6.0)
+        self.declare_parameter('trajectory_validation_max_retries', 3)
+        self.declare_parameter('trajectory_validation_retry_duration_increment', 2.0)
+        self.declare_parameter('split_needle_approach', True)
+        self.declare_parameter('use_staging_pose', False)
+        self.declare_parameter('staging_joint_pose', [0.0, -0.6, 0.0, -2.2, 0.0, 1.8, 0.8])
+        self.declare_parameter('needle_approach_min_duration', 8.0)
         self.declare_parameter('needle_pre_entry_min_duration', 2.0)
         self.declare_parameter('needle_insertion_min_duration', 0.3)
-        self.declare_parameter('needle_retry_command_delay', 5.0)
-        self.declare_parameter('needle_max_retries', 5)
+        self.declare_parameter('needle_approach_command_delay', 5.0)
+        self.declare_parameter('needle_approach_max_retries', 5)
         self.declare_parameter('needle_motion_start_threshold', 0.002)
+        self.declare_parameter('needle_approach_goal_tolerance', 0.01)
 
         # Joint limits
         joint_velocity_limits = self.get_parameter('joint_velocity_limits').value
@@ -63,6 +66,21 @@ class TrajectoryPlanningNode(Node):
         trajectory_finished_topic = self.get_parameter('trajectory_finished_topic').value
         self.joint_names = self.get_parameter('joint_names').value
         self.ik_min_duration = float(self.get_parameter('ik_min_duration').value)
+        self.trajectory_validation_max_retries = int(
+            self.get_parameter('trajectory_validation_max_retries').value
+        )
+        self.trajectory_validation_retry_duration_increment = float(
+            self.get_parameter('trajectory_validation_retry_duration_increment').value
+        )
+        if self.trajectory_validation_max_retries < 0:
+            raise ValueError('trajectory_validation_max_retries must be non-negative.')
+        if self.trajectory_validation_retry_duration_increment < 0.0:
+            raise ValueError(
+                'trajectory_validation_retry_duration_increment must be non-negative.'
+            )
+        self.split_needle_approach = bool(self.get_parameter('split_needle_approach').value)
+        self.use_staging_pose = bool(self.get_parameter('use_staging_pose').value)
+        self.staging_joint_pose = list(self.get_parameter('staging_joint_pose').value)
         self.needle_approach_min_duration = float(
             self.get_parameter('needle_approach_min_duration').value
         )
@@ -72,21 +90,41 @@ class TrajectoryPlanningNode(Node):
         self.needle_insertion_min_duration = float(
             self.get_parameter('needle_insertion_min_duration').value
         )
-        self.needle_retry_command_delay = float(
-            self.get_parameter('needle_retry_command_delay').value
+        self.needle_approach_command_delay = float(
+            self.get_parameter('needle_approach_command_delay').value
         )
-        self.needle_max_retries = int(self.get_parameter('needle_max_retries').value)
+        self.needle_approach_max_retries = int(
+            self.get_parameter('needle_approach_max_retries').value
+        )
         self.needle_motion_start_threshold = float(
             self.get_parameter('needle_motion_start_threshold').value
         )
+        self.needle_approach_goal_tolerance = float(
+            self.get_parameter('needle_approach_goal_tolerance').value
+        )
+
+        expected_joint_count = len(self.joint_names)
+        if len(self.staging_joint_pose) != expected_joint_count:
+            raise ValueError(
+                f"staging_joint_pose must contain {expected_joint_count} values, "
+                f"got {len(self.staging_joint_pose)}."
+            )
+        for label, limits in (
+            ("joint_velocity_limits", joint_velocity_limits),
+            ("joint_acceleration_limits", joint_acceleration_limits),
+            ("joint_jerk_limits", joint_jerk_limits),
+        ):
+            if len(limits) != expected_joint_count:
+                raise ValueError(
+                    f"{label} must contain {expected_joint_count} values, "
+                    f"got {len(limits)}."
+                )
 
         # Publishers
         self.ik_target_pub = self.create_publisher(PoseStamped, ik_target_pose_topic, 10)
         self.joint_traj_pub = self.create_publisher(Float64MultiArray, joint_trajectory_topic, 10)
 
         self.publish_rate_hz = 1000 # Robot needs 1000Hz
-        self.trajectory_to_publish = []
-        self.trajectory_publish_index = 0
         
         # Subscribers
         self.target_pose_sub = self.create_subscription(
@@ -103,16 +141,74 @@ class TrajectoryPlanningNode(Node):
         self.current_joint_state = None
         self.last_target_pose = None
         self.last_finished_count = -1
-        self.needle_retry_timer = None
-        self.pending_needle_trajectory = None
-        self.waiting_for_needle_motion_start = False
-        self.needle_motion_reference = None
-        self.needle_retry_count = 0
+        self.pending_needle_approach_trajectory = None
+        self.pending_needle_insertion_trajectory = None
+        self.waiting_for_needle_approach = False
+        self.waiting_for_needle_approach_start = False
+        self.waiting_for_needle_approach_finish = False
+        self.waiting_for_needle_insertion = False
+        self.waiting_for_needle_insertion_start = False
+        self.waiting_for_needle_insertion_finish = False
+        self.needle_approach_motion_reference = None
+        self.needle_insertion_motion_reference = None
+        self.needle_approach_goal = None
+        self.needle_insertion_goal = None
+        self.needle_approach_retry_timer = None
+        self.needle_insertion_retry_timer = None
+        self.needle_approach_retry_count = 0
+        self.needle_insertion_retry_count = 0
+        self.needle_approach_finish_count = -1
+        self.needle_insertion_finish_count = -1
         
         self.generator = QuinticTrajectoryGenerator(joint_velocity_limits, joint_acceleration_limits, joint_jerk_limits)
         self.path_planner = JointPath()
 
         self.get_logger().info('Trajectory Planning Node started.')
+
+    def _generate_trajectory_with_recovery(
+        self,
+        path,
+        min_duration: float,
+        label: str,
+    ) -> list:
+        duration = float(min_duration)
+        last_error = None
+
+        for attempt in range(self.trajectory_validation_max_retries + 1):
+            try:
+                trajectory = self.generator.generate_trajectory(
+                    path,
+                    self.publish_rate_hz,
+                    self.safety_factor,
+                    min_duration=duration,
+                )
+                if attempt > 0:
+                    self.get_logger().info(
+                        f"{label} trajectory recovered with "
+                        f"min_duration={duration:.2f}s."
+                    )
+                return trajectory
+            except ValueError as exc:
+                last_error = exc
+                if attempt >= self.trajectory_validation_max_retries:
+                    break
+
+                next_duration = (
+                    duration
+                    + self.trajectory_validation_retry_duration_increment
+                )
+                self.get_logger().warn(
+                    f"{label} trajectory validation failed with "
+                    f"min_duration={duration:.2f}s: {exc}. Retrying with "
+                    f"min_duration={next_duration:.2f}s."
+                )
+                duration = next_duration
+
+        raise ValueError(
+            f"{label} trajectory validation failed after "
+            f"{self.trajectory_validation_max_retries + 1} attempts; "
+            f"last min_duration={duration:.2f}s: {last_error}"
+        )
 
     def joint_states_callback(self, msg: JointState):
         """ Read Current Robot State """
@@ -124,13 +220,68 @@ class TrajectoryPlanningNode(Node):
         if not missing:
             self.current_joint_state = [joint_map[j] for j in self.joint_names]
             if (
-                self.waiting_for_needle_motion_start
-                and self._needle_motion_started()
+                self.waiting_for_needle_approach_start
+                and self._needle_approach_motion_started()
             ):
-                self._handle_needle_motion_started()
+                self._handle_needle_approach_started()
+            if (
+                self.waiting_for_needle_insertion_start
+                and self._needle_insertion_motion_started()
+            ):
+                self._handle_needle_insertion_started()
 
     def trajectory_finished_callback(self, msg: UInt64):
         self.last_finished_count = msg.data
+        if (
+            self.waiting_for_needle_approach
+            and self.last_finished_count > self.needle_approach_finish_count
+        ):
+            if (
+                self.waiting_for_needle_approach_start
+                and not self._needle_approach_motion_started()
+                and not self._needle_approach_goal_reached()
+            ):
+                self.needle_approach_finish_count = self.last_finished_count
+                self.get_logger().warn(
+                    'trajectory_finished changed before needle approach motion '
+                    'was observed; continuing approach retries.'
+                )
+                return
+            self._cancel_needle_approach_retry_timer()
+            self.waiting_for_needle_approach = False
+            self.waiting_for_needle_approach_start = False
+            self.waiting_for_needle_approach_finish = False
+            self.pending_needle_approach_trajectory = None
+            insertion_trajectory = self.pending_needle_insertion_trajectory
+            self.pending_needle_insertion_trajectory = None
+            self.get_logger().info(
+                'Needle approach finished; publishing insertion trajectory.'
+            )
+            self._start_needle_insertion(insertion_trajectory)
+
+        if (
+            self.waiting_for_needle_insertion
+            and self.last_finished_count > self.needle_insertion_finish_count
+        ):
+            if (
+                self.waiting_for_needle_insertion_start
+                and not self._needle_insertion_motion_started()
+                and not self._needle_insertion_goal_reached()
+            ):
+                self.needle_insertion_finish_count = self.last_finished_count
+                self.get_logger().warn(
+                    'trajectory_finished changed before needle insertion motion '
+                    'was observed; continuing insertion retries.'
+                )
+                return
+            self._cancel_needle_insertion_retry_timer()
+            self.waiting_for_needle_insertion = False
+            self.waiting_for_needle_insertion_start = False
+            self.waiting_for_needle_insertion_finish = False
+            self.pending_needle_insertion_trajectory = None
+            self.needle_insertion_motion_reference = None
+            self.needle_insertion_goal = None
+            self.get_logger().info('Needle insertion trajectory finished.')
 
     def target_pose_callback(self, msg: PoseStamped):
         """ Receive Target Pose """
@@ -162,11 +313,10 @@ class TrajectoryPlanningNode(Node):
 
         # Compute trajectory
         try:
-            trajectory = self.generator.generate_trajectory(
+            trajectory = self._generate_trajectory_with_recovery(
                 path,
-                self.publish_rate_hz,
-                self.safety_factor,
                 min_duration=self.ik_min_duration,
+                label='IK',
             )
             self._publish_trajectory(trajectory)
         except ValueError as e:
@@ -176,9 +326,14 @@ class TrajectoryPlanningNode(Node):
         """ Receive Needle Path"""
         self.get_logger().info('Received needle insertion path.')
 
-        if self.waiting_for_needle_motion_start:
+        if self.waiting_for_needle_approach:
             self.get_logger().error(
-                'Needle trajectory is still waiting for robot motion; rejecting new needle path.'
+                'Needle approach is still active; rejecting new needle path.'
+            )
+            return
+        if self.waiting_for_needle_insertion:
+            self.get_logger().error(
+                'Needle insertion is still active; rejecting new needle path.'
             )
             return
 
@@ -208,117 +363,253 @@ class TrajectoryPlanningNode(Node):
         entry_point = needle_path[1]
 
         try:
-            self.get_logger().info('Generating approach trajectory...')
-            approach_path = self.path_planner.joint_path(self.current_joint_state, pre_entry_point)
-            approach_traj = self.generator.generate_trajectory(
+            self.get_logger().info('Generating needle approach trajectory...')
+            approach_path = self._needle_approach_path(pre_entry_point)
+            approach_traj = self._generate_trajectory_with_recovery(
                 approach_path,
-                self.publish_rate_hz,
-                self.safety_factor,
                 min_duration=self.needle_approach_min_duration,
+                label='Needle approach',
             )
 
             self.get_logger().info('Generating pre-entry to entry trajectory...')
             pre_to_entry_path = self.path_planner.joint_path(pre_entry_point, entry_point)
-            pre_to_entry_traj = self.generator.generate_trajectory(
+            pre_to_entry_traj = self._generate_trajectory_with_recovery(
                 pre_to_entry_path,
-                self.publish_rate_hz,
-                self.safety_factor,
                 min_duration=self.needle_pre_entry_min_duration,
+                label='Needle pre-entry to entry',
             )
 
             self.get_logger().info('Generating needle insertion trajectory...')
             insertion_path = needle_path[1:]
             insertion_traj = []
             if len(insertion_path) > 1:
-                insertion_traj = self.generator.generate_trajectory(
+                insertion_traj = self._generate_trajectory_with_recovery(
                     insertion_path,
-                    self.publish_rate_hz,
-                    self.safety_factor,
                     min_duration=self.needle_insertion_min_duration,
+                    label='Needle insertion',
                 )
 
-            final_trajectory = self._concatenate_trajectories([approach_traj, pre_to_entry_traj, insertion_traj])
+            insertion_trajectory = self._concatenate_trajectories([
+                pre_to_entry_traj,
+                insertion_traj,
+            ])
 
-            self._publish_needle_trajectory_with_retry(final_trajectory)
+            if self.split_needle_approach:
+                self.pending_needle_insertion_trajectory = insertion_trajectory
+                self._start_needle_approach(approach_traj)
+            else:
+                final_trajectory = self._concatenate_trajectories([
+                    approach_traj,
+                    insertion_trajectory,
+                ])
+                self._publish_trajectory(final_trajectory)
         except ValueError as e:
             self.get_logger().error(f"Needle trajectory verification failed: {str(e)}")
 
-    def _publish_needle_trajectory_with_retry(self, trajectory: list) -> None:
-        self.pending_needle_trajectory = trajectory
-        self.waiting_for_needle_motion_start = True
-        self.needle_motion_reference = (
+    def _needle_approach_path(self, pre_entry_point):
+        path = [self.current_joint_state]
+        if self.use_staging_pose:
+            path.append(self.staging_joint_pose)
+        path.append(pre_entry_point)
+        return path
+
+    def _start_needle_approach(self, approach_trajectory):
+        self.pending_needle_approach_trajectory = approach_trajectory
+        self.waiting_for_needle_approach = True
+        self.waiting_for_needle_approach_start = True
+        self.waiting_for_needle_approach_finish = False
+        self.needle_approach_retry_count = 0
+        self.needle_approach_finish_count = self.last_finished_count
+        self.needle_approach_motion_reference = (
             list(self.current_joint_state)
             if self.current_joint_state is not None
             else None
         )
-        self.needle_retry_count = 0
-        self._cancel_needle_retry_timer()
+        self.needle_approach_goal = list(approach_trajectory[-1]['positions'])
+        self._cancel_needle_approach_retry_timer()
         self.get_logger().info(
-            'Publishing needle trajectory; will retry until robot starts moving.'
+            'Publishing needle approach trajectory; will retry until robot starts moving.'
         )
-        self._publish_trajectory(trajectory)
-        self.needle_retry_timer = self.create_timer(
-            self.needle_retry_command_delay,
-            self._needle_retry_callback,
+        self._publish_trajectory(approach_trajectory)
+        self.needle_approach_retry_timer = self.create_timer(
+            self.needle_approach_command_delay,
+            self._needle_approach_retry_callback,
         )
 
-    def _needle_retry_callback(self) -> None:
-        if not self.waiting_for_needle_motion_start:
-            self._cancel_needle_retry_timer()
+    def _needle_approach_retry_callback(self):
+        if not self.waiting_for_needle_approach_start:
+            self._cancel_needle_approach_retry_timer()
             return
 
-        if self._needle_motion_started():
-            self._handle_needle_motion_started()
+        if self._needle_approach_motion_started():
+            self._handle_needle_approach_started()
             return
 
-        if self.needle_retry_count >= self.needle_max_retries:
-            self._cancel_needle_retry_timer()
-            self.waiting_for_needle_motion_start = False
-            self.pending_needle_trajectory = None
-            self.needle_motion_reference = None
+        if self.needle_approach_retry_count >= self.needle_approach_max_retries:
+            self._cancel_needle_approach_retry_timer()
+            self._clear_pending_needle_approach()
             self.get_logger().error(
-                'Needle trajectory did not start after '
-                f'{self.needle_max_retries} retries; aborting retry loop.'
+                'Needle approach did not start after '
+                f'{self.needle_approach_max_retries} retries; insertion aborted.'
             )
             return
 
-        self.needle_retry_count += 1
+        self.needle_approach_retry_count += 1
         self.get_logger().warn(
-            'Needle trajectory has not started; resending trajectory '
-            f'(attempt {self.needle_retry_count + 1}/{self.needle_max_retries + 1}).'
+            'Needle approach has not started; resending approach trajectory '
+            f'(attempt {self.needle_approach_retry_count + 1}/'
+            f'{self.needle_approach_max_retries + 1}).'
         )
-        self._publish_trajectory(self.pending_needle_trajectory)
+        self._publish_trajectory(self.pending_needle_approach_trajectory)
 
-    def _needle_motion_started(self) -> bool:
+    def _needle_approach_motion_started(self) -> bool:
         if (
             self.current_joint_state is None
-            or self.needle_motion_reference is None
+            or self.needle_approach_motion_reference is None
         ):
             return False
         deltas = [
             abs(current - reference)
             for current, reference in zip(
                 self.current_joint_state,
-                self.needle_motion_reference,
+                self.needle_approach_motion_reference,
             )
         ]
         return max(deltas, default=0.0) >= self.needle_motion_start_threshold
 
-    def _handle_needle_motion_started(self) -> None:
-        if not self.waiting_for_needle_motion_start:
+    def _needle_approach_goal_reached(self) -> bool:
+        if self.current_joint_state is None or self.needle_approach_goal is None:
+            return False
+        deltas = [
+            abs(current - goal)
+            for current, goal in zip(self.current_joint_state, self.needle_approach_goal)
+        ]
+        return max(deltas, default=float('inf')) <= self.needle_approach_goal_tolerance
+
+    def _handle_needle_approach_started(self):
+        if not self.waiting_for_needle_approach_start:
             return
-        self._cancel_needle_retry_timer()
-        self.waiting_for_needle_motion_start = False
-        self.pending_needle_trajectory = None
-        self.needle_motion_reference = None
+        self._cancel_needle_approach_retry_timer()
+        self.waiting_for_needle_approach_start = False
+        self.waiting_for_needle_approach_finish = True
         self.get_logger().info(
-            'Needle trajectory started; retry loop stopped.'
+            'Needle approach started; waiting for trajectory_finished before insertion.'
         )
 
-    def _cancel_needle_retry_timer(self) -> None:
-        if self.needle_retry_timer is not None:
-            self.needle_retry_timer.cancel()
-            self.needle_retry_timer = None
+    def _start_needle_insertion(self, insertion_trajectory):
+        if not insertion_trajectory:
+            self.get_logger().error('Needle insertion trajectory is empty; aborting.')
+            self._clear_pending_needle_insertion()
+            return
+
+        self.pending_needle_insertion_trajectory = insertion_trajectory
+        self.waiting_for_needle_insertion = True
+        self.waiting_for_needle_insertion_start = True
+        self.waiting_for_needle_insertion_finish = False
+        self.needle_insertion_retry_count = 0
+        self.needle_insertion_finish_count = self.last_finished_count
+        self.needle_insertion_motion_reference = (
+            list(self.current_joint_state)
+            if self.current_joint_state is not None
+            else None
+        )
+        self.needle_insertion_goal = list(insertion_trajectory[-1]['positions'])
+        self._cancel_needle_insertion_retry_timer()
+        self.get_logger().info(
+            'Publishing needle insertion trajectory; will retry until robot starts moving.'
+        )
+        self._publish_trajectory(insertion_trajectory)
+        self.needle_insertion_retry_timer = self.create_timer(
+            self.needle_approach_command_delay,
+            self._needle_insertion_retry_callback,
+        )
+
+    def _needle_insertion_retry_callback(self):
+        if not self.waiting_for_needle_insertion_start:
+            self._cancel_needle_insertion_retry_timer()
+            return
+
+        if self._needle_insertion_motion_started():
+            self._handle_needle_insertion_started()
+            return
+
+        if self.needle_insertion_retry_count >= self.needle_approach_max_retries:
+            self._cancel_needle_insertion_retry_timer()
+            self._clear_pending_needle_insertion()
+            self.get_logger().error(
+                'Needle insertion did not start after '
+                f'{self.needle_approach_max_retries} retries; insertion aborted.'
+            )
+            return
+
+        self.needle_insertion_retry_count += 1
+        self.get_logger().warn(
+            'Needle insertion has not started; resending insertion trajectory '
+            f'(attempt {self.needle_insertion_retry_count + 1}/'
+            f'{self.needle_approach_max_retries + 1}).'
+        )
+        self._publish_trajectory(self.pending_needle_insertion_trajectory)
+
+    def _needle_insertion_motion_started(self) -> bool:
+        if (
+            self.current_joint_state is None
+            or self.needle_insertion_motion_reference is None
+        ):
+            return False
+        deltas = [
+            abs(current - reference)
+            for current, reference in zip(
+                self.current_joint_state,
+                self.needle_insertion_motion_reference,
+            )
+        ]
+        return max(deltas, default=0.0) >= self.needle_motion_start_threshold
+
+    def _needle_insertion_goal_reached(self) -> bool:
+        if self.current_joint_state is None or self.needle_insertion_goal is None:
+            return False
+        deltas = [
+            abs(current - goal)
+            for current, goal in zip(self.current_joint_state, self.needle_insertion_goal)
+        ]
+        return max(deltas, default=float('inf')) <= self.needle_approach_goal_tolerance
+
+    def _handle_needle_insertion_started(self):
+        if not self.waiting_for_needle_insertion_start:
+            return
+        self._cancel_needle_insertion_retry_timer()
+        self.waiting_for_needle_insertion_start = False
+        self.waiting_for_needle_insertion_finish = True
+        self.get_logger().info(
+            'Needle insertion started; waiting for trajectory_finished.'
+        )
+
+    def _cancel_needle_approach_retry_timer(self):
+        if self.needle_approach_retry_timer is not None:
+            self.needle_approach_retry_timer.cancel()
+            self.needle_approach_retry_timer = None
+
+    def _cancel_needle_insertion_retry_timer(self):
+        if self.needle_insertion_retry_timer is not None:
+            self.needle_insertion_retry_timer.cancel()
+            self.needle_insertion_retry_timer = None
+
+    def _clear_pending_needle_approach(self):
+        self.waiting_for_needle_approach = False
+        self.waiting_for_needle_approach_start = False
+        self.waiting_for_needle_approach_finish = False
+        self.pending_needle_approach_trajectory = None
+        self.pending_needle_insertion_trajectory = None
+        self.needle_approach_motion_reference = None
+        self.needle_approach_goal = None
+
+    def _clear_pending_needle_insertion(self):
+        self.waiting_for_needle_insertion = False
+        self.waiting_for_needle_insertion_start = False
+        self.waiting_for_needle_insertion_finish = False
+        self.pending_needle_insertion_trajectory = None
+        self.needle_insertion_motion_reference = None
+        self.needle_insertion_goal = None
 
     def _concatenate_trajectories(self,trajectories):
         """

@@ -30,7 +30,10 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription(
         [
             DeclareLaunchArgument("scanning_mode", default_value="hand_eye"),
-            DeclareLaunchArgument("scan_complete_topic", default_value="/scanning/complete"),
+            DeclareLaunchArgument(
+                "scan_complete_topic",
+                default_value="/scanning/complete",
+            ),
             scanning_node,
         ]
     )

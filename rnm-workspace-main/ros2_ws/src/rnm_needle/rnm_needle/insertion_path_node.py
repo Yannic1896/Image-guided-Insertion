@@ -15,8 +15,10 @@ from sensor_msgs.msg import JointState
 
 # Kinematik und Berechnungslogik importieren
 from rnm_kinematics.ik_solver import IKSolver
-from rnm_kinematics.fk_solver import ForwardKinematicsSolver
 from rnm_needle.insertion_path import InsertionPathCalculator
+from rnm_needle.safety import LightweightCollisionChecker
+from rnm_needle.safety import joint_limit_margin
+from rnm_needle.safety import parse_forbidden_spheres
 
 DEFAULT_REGISTRATION_TOPIC = '/needle_poses'
 DEFAULT_BASE_FRAME = 'panda_link0'
@@ -50,6 +52,25 @@ class InsertionPathNode(Node):
         self.declare_parameter('joint_limit_lower', Parameter.Type.DOUBLE_ARRAY)
         self.declare_parameter('joint_limit_upper', Parameter.Type.DOUBLE_ARRAY)
         self.declare_parameter('max_step', 0.05)
+        self.declare_parameter(
+            'preferred_ik_seed',
+            [0.0, -0.6, 0.0, -2.2, 0.0, 1.8, 0.8],
+        )
+        self.declare_parameter('ik_seed_delta', 0.35)
+        self.declare_parameter('max_pre_entry_joint_delta', 2.0)
+        self.declare_parameter('max_waypoint_joint_delta', 0.8)
+        self.declare_parameter('min_joint_limit_margin', 0.05)
+        self.declare_parameter('collision_check_enabled', True)
+        self.declare_parameter('min_self_collision_distance', 0.03)
+        self.declare_parameter('min_table_z', -0.05)
+        self.declare_parameter(
+            'collision_forbidden_sphere_centers',
+            [0.0, 0.0, 0.0],
+        )
+        self.declare_parameter(
+            'collision_forbidden_sphere_radii',
+            [0.0],
+        )
         
         # reading the parameters
         self._needle_offset_z = float(self.get_parameter('needle_offset_z').value)
@@ -76,17 +97,41 @@ class InsertionPathNode(Node):
         dh_params = self._load_dh_params()
         lower_limits, upper_limits = self._load_joint_limits()
         max_step = float(self.get_parameter('max_step').value)
+        self._joint_lower_limits = lower_limits
+        self._joint_upper_limits = upper_limits
+        self._preferred_ik_seed = self._load_optional_joint_array('preferred_ik_seed')
+        self._ik_seed_delta = float(self.get_parameter('ik_seed_delta').value)
+        self._max_pre_entry_joint_delta = float(
+            self.get_parameter('max_pre_entry_joint_delta').value
+        )
+        self._max_waypoint_joint_delta = float(
+            self.get_parameter('max_waypoint_joint_delta').value
+        )
+        self._min_joint_limit_margin = float(
+            self.get_parameter('min_joint_limit_margin').value
+        )
+        self._collision_check_enabled = bool(
+            self.get_parameter('collision_check_enabled').value
+        )
+        forbidden_spheres = parse_forbidden_spheres(
+            self.get_parameter('collision_forbidden_sphere_centers').value or [],
+            self.get_parameter('collision_forbidden_sphere_radii').value or [],
+        )
+        self._collision_checker = LightweightCollisionChecker(
+            dh_params=dh_params,
+            joint_count=len(self._joint_names),
+            min_self_distance=float(
+                self.get_parameter('min_self_collision_distance').value
+            ),
+            min_table_z=float(self.get_parameter('min_table_z').value),
+            forbidden_spheres=forbidden_spheres,
+        )
         
         self.ik_solver = IKSolver(
             dh_params=dh_params,
             joint_lower_limits=lower_limits,
             joint_upper_limits=upper_limits,
             max_step=max_step,
-        )
-
-        # initialize fk solver
-        self.fk_solver = ForwardKinematicsSolver(
-            dh_params=dh_params
         )
 
         # saves reference for current robot state (IK startvalues)
@@ -144,6 +189,8 @@ class InsertionPathNode(Node):
         alpha = list(self.get_parameter('dh_alpha').value or [])
         if not (d and a and alpha):
             raise ValueError('DH-Parameter fehlen! Stelle sicher, dass panda_dh.yaml geladen ist.')
+        if not (len(d) == len(a) == len(alpha)):
+            raise ValueError('DH parameter arrays must have equal length.')
         return np.array([d, a, alpha], dtype=float).T
 
     def _load_joint_limits(self) -> tuple[np.ndarray, np.ndarray]:
@@ -152,7 +199,21 @@ class InsertionPathNode(Node):
         upper = list(self.get_parameter('joint_limit_upper').value or [])
         if not lower or not upper:
             raise ValueError('Gelenkgrenzen fehlen! Stelle sicher, dass panda_joint_limits.yaml geladen ist.')
+        if len(lower) != len(self._joint_names) or len(upper) != len(self._joint_names):
+            raise ValueError(
+                'Joint limit arrays must match the configured joint_names length.'
+            )
         return np.array(lower, dtype=float), np.array(upper, dtype=float)
+
+    def _load_optional_joint_array(self, parameter_name: str) -> np.ndarray | None:
+        values = list(self.get_parameter(parameter_name).value or [])
+        if not values:
+            return None
+        if len(values) != len(self._joint_names):
+            raise ValueError(
+                f'{parameter_name} must contain {len(self._joint_names)} values.'
+            )
+        return np.array(values, dtype=float)
 
     def joint_states_callback(self, msg: JointState) -> None:
         """ Speichert den aktuellen Gelenkzustand des Roboters """
@@ -271,6 +332,9 @@ class InsertionPathNode(Node):
             target_point,
             self._needle_offset_z
         )
+        if not calculated_poses:
+            self.get_logger().warning('Calculated needle path is empty. Calculation aborted.')
+            return
 
         # 2. JointTrajectory message preparation
         trajectory_msg = JointTrajectory()
@@ -278,15 +342,8 @@ class InsertionPathNode(Node):
         trajectory_msg.header.frame_id = self._base_frame
         trajectory_msg.joint_names = self._joint_names
         
-        # start configuration for the IK 
+        # start configuration for the IK
         current_q = self._latest_joint_positions.copy()
-
-        # find flange orientation
-        T = self.fk_solver.compute(current_q)   # 4x4 transform base -> flange
-        R = T[0:3, 0:3]                         # rotation part
-        z_flange_base = R @ np.array([0.0, 0.0, 1.0])
-
-
 
         # 3. loop for all calculated poses -> IK solve
         for i, pose in enumerate(calculated_poses):
@@ -295,27 +352,185 @@ class InsertionPathNode(Node):
                 pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w
             ], dtype=float)
 
-            # IK calculation (uses method from ik_solver.py)
-            q_sol = self.ik_solver.solve(target_pose_array, initial_guess=current_q)
-
-            if q_sol is not None:
-                point = JointTrajectoryPoint()
-                point.positions = q_sol.tolist()
-                
-                # Timestamp for the trajectory set (e.g., 0.5 seconds interval per point)
-                duration = i * 0.5
-                point.time_from_start.sec = int(duration)
-                point.time_from_start.nanosec = int((duration % 1.0) * 1e9)
-                
-                trajectory_msg.points.append(point)
-                current_q = q_sol  # Update für den nächsten Punkt
+            if i == 0:
+                q_sol = self._solve_pre_entry(target_pose_array, current_q)
             else:
-                self.get_logger().error(f'IK-Solver fand keine Lösung für Wegpunkt {i}! Trajektorie abgebrochen.')
+                q_sol = self._solve_waypoint(target_pose_array, current_q, i)
+
+            if q_sol is None:
                 return
+
+            if not self._validate_waypoint_transition(current_q, q_sol, i):
+                return
+
+            point = JointTrajectoryPoint()
+            point.positions = q_sol.tolist()
+
+            # Timestamp for the trajectory set (e.g., 0.5 seconds interval per point)
+            duration = i * 0.5
+            point.time_from_start.sec = int(duration)
+            point.time_from_start.nanosec = int((duration % 1.0) * 1e9)
+
+            trajectory_msg.points.append(point)
+            current_q = q_sol  # Update für den nächsten Punkt
 
         # 4.  joint trajectory publishen
         self.path_publisher.publish(trajectory_msg)
         self.get_logger().info(f'Published JointTrajectory with {len(trajectory_msg.points)} joint points to trajectory planning.')
+
+    def _solve_pre_entry(
+        self,
+        target_pose_array: np.ndarray,
+        current_q: np.ndarray,
+    ) -> np.ndarray | None:
+        candidates = []
+        for seed in self._pre_entry_ik_seeds(current_q):
+            try:
+                q_sol = self.ik_solver.solve(target_pose_array, initial_guess=seed)
+            except ValueError as exc:
+                self.get_logger().error(f'IK input validation failed for pre-entry: {exc}')
+                return None
+            if q_sol is None:
+                continue
+            valid, reason = self._validate_candidate(q_sol)
+            if not valid:
+                self.get_logger().warn(f'Rejected pre-entry IK candidate: {reason}')
+                continue
+            score = self._score_pre_entry_candidate(q_sol, current_q)
+            candidates.append((score, q_sol))
+
+        if not candidates:
+            self.get_logger().error('IK solver found no safe pre-entry solution.')
+            return None
+
+        candidates.sort(key=lambda item: item[0])
+        best_score, best_q = candidates[0]
+        self._log_pre_entry_validation(current_q, best_q, best_score)
+        return best_q
+
+    def _solve_waypoint(
+        self,
+        target_pose_array: np.ndarray,
+        current_q: np.ndarray,
+        waypoint_index: int,
+    ) -> np.ndarray | None:
+        try:
+            q_sol = self.ik_solver.solve(target_pose_array, initial_guess=current_q)
+        except ValueError as exc:
+            self.get_logger().error(
+                f'IK input validation failed for waypoint {waypoint_index}: {exc}'
+            )
+            return None
+
+        if q_sol is None:
+            self.get_logger().error(
+                f'IK-Solver fand keine Lösung für Wegpunkt {waypoint_index}! '
+                'Trajektorie abgebrochen.'
+            )
+            return None
+
+        valid, reason = self._validate_candidate(q_sol)
+        if not valid:
+            self.get_logger().error(
+                f'Waypoint {waypoint_index} failed safety validation: {reason}'
+            )
+            return None
+
+        return q_sol
+
+    def _pre_entry_ik_seeds(self, current_q: np.ndarray) -> list[np.ndarray]:
+        seeds = [current_q]
+        if self._preferred_ik_seed is not None:
+            seeds.append(self._preferred_ik_seed)
+        seeds.append(0.5 * (self._joint_lower_limits + self._joint_upper_limits))
+
+        for joint_index in (1, 3, 5):
+            for sign in (-1.0, 1.0):
+                seed = current_q.copy()
+                seed[joint_index] += sign * self._ik_seed_delta
+                seed = np.clip(seed, self._joint_lower_limits, self._joint_upper_limits)
+                seeds.append(seed)
+
+        unique_seeds = []
+        for seed in seeds:
+            if not any(np.allclose(seed, existing) for existing in unique_seeds):
+                unique_seeds.append(seed)
+        return unique_seeds
+
+    def _validate_candidate(self, q_sol: np.ndarray) -> tuple[bool, str]:
+        margin = joint_limit_margin(
+            q_sol,
+            self._joint_lower_limits,
+            self._joint_upper_limits,
+        )
+        if margin < self._min_joint_limit_margin:
+            return (
+                False,
+                f'joint-limit margin {margin:.3f} rad is below '
+                f'{self._min_joint_limit_margin:.3f} rad',
+            )
+
+        if self._collision_check_enabled:
+            result = self._collision_checker.validate(q_sol)
+            if not result.ok:
+                return False, result.reason
+
+        return True, ''
+
+    def _validate_waypoint_transition(
+        self,
+        previous_q: np.ndarray,
+        next_q: np.ndarray,
+        waypoint_index: int,
+    ) -> bool:
+        deltas = np.abs(next_q - previous_q)
+        max_delta = float(np.max(deltas))
+        limit = (
+            self._max_pre_entry_joint_delta
+            if waypoint_index == 0
+            else self._max_waypoint_joint_delta
+        )
+        if limit > 0.0 and max_delta > limit:
+            self.get_logger().error(
+                f'Waypoint {waypoint_index} joint jump too large: '
+                f'{max_delta:.3f} rad > {limit:.3f} rad; deltas={deltas.tolist()}'
+            )
+            return False
+        return True
+
+    def _score_pre_entry_candidate(
+        self,
+        candidate_q: np.ndarray,
+        current_q: np.ndarray,
+    ) -> float:
+        joint_distance = float(np.linalg.norm(candidate_q - current_q))
+        margin = joint_limit_margin(
+            candidate_q,
+            self._joint_lower_limits,
+            self._joint_upper_limits,
+        )
+        limit_penalty = 1.0 / max(margin, 1e-3)
+        elbow_penalty = 0.25 * abs(candidate_q[3] - current_q[3])
+        wrist_penalty = 0.15 * abs(candidate_q[5] - current_q[5])
+        return joint_distance + 0.05 * limit_penalty + elbow_penalty + wrist_penalty
+
+    def _log_pre_entry_validation(
+        self,
+        current_q: np.ndarray,
+        pre_entry_q: np.ndarray,
+        score: float,
+    ) -> None:
+        deltas = np.abs(pre_entry_q - current_q)
+        margin = joint_limit_margin(
+            pre_entry_q,
+            self._joint_lower_limits,
+            self._joint_upper_limits,
+        )
+        self.get_logger().info(
+            'Selected pre-entry IK solution: '
+            f'score={score:.3f}, max_delta={float(np.max(deltas)):.3f} rad, '
+            f'limit_margin={margin:.3f} rad, deltas={deltas.tolist()}'
+        )
 
 def main(args: list[str] | None = None) -> None:
     rclpy.init(args=args)

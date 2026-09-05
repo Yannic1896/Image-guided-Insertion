@@ -9,10 +9,6 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def _launch_supervisor(context: LaunchContext):
-    wait_for_keypress = (
-        LaunchConfiguration("wait_for_keypress").perform(context).lower()
-        in {"1", "true", "yes", "on"}
-    )
     use_sim = (
         LaunchConfiguration("use_sim").perform(context).lower()
         in {"1", "true", "yes", "on"}
@@ -47,11 +43,11 @@ def _launch_supervisor(context: LaunchContext):
         LaunchConfiguration("save_service_timeout_sec").perform(context),
         "--shutdown-timeout-sec",
         LaunchConfiguration("shutdown_timeout_sec").perform(context),
+        "--needle-mount-delay-sec",
+        LaunchConfiguration("needle_mount_delay_sec").perform(context),
     ]
     if use_sim:
         command.append("--use-sim")
-    if not wait_for_keypress:
-        command.append("--no-keypress")
 
     return [
         ExecuteProcess(
@@ -97,7 +93,10 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="/workspaces/rnm-documents-primary/entry_point_output/needle_entry_point.txt",
             ),
             DeclareLaunchArgument("entry_candidate_index", default_value="0"),
-            DeclareLaunchArgument("scan_complete_topic", default_value="/scanning/complete"),
+            DeclareLaunchArgument(
+                "scan_complete_topic",
+                default_value="/scanning/complete",
+            ),
             DeclareLaunchArgument("save_scan_service", default_value="/save_scan"),
             DeclareLaunchArgument("startup_delay_sec", default_value="2.0"),
             DeclareLaunchArgument(
@@ -107,7 +106,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument("save_service_timeout_sec", default_value="20.0"),
             DeclareLaunchArgument("shutdown_timeout_sec", default_value="5.0"),
-            DeclareLaunchArgument("wait_for_keypress", default_value="true"),
+            DeclareLaunchArgument("needle_mount_delay_sec", default_value="15.0"),
             OpaqueFunction(function=_launch_supervisor),
         ]
     )

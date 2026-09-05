@@ -29,7 +29,10 @@ def generate_launch_description() -> LaunchDescription:
             panda_limits,
             needle_params,   # topics, DH-Parameters and limits
             {
-                'input_source': LaunchConfiguration('input_source'),
+                'input_source': ParameterValue(
+                    LaunchConfiguration('input_source'),
+                    value_type=str,
+                ),
                 'target_location_file': LaunchConfiguration('target_location_file'),
                 'entry_location_file': LaunchConfiguration('entry_location_file'),
                 'entry_candidate_index': ParameterValue(
@@ -43,7 +46,7 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
         [
-            DeclareLaunchArgument('input_source', default_value='topic'),
+            DeclareLaunchArgument('input_source', default_value='file'),
             DeclareLaunchArgument(
                 'target_location_file',
                 default_value=needle_defaults.get(
@@ -70,4 +73,4 @@ def generate_launch_description() -> LaunchDescription:
 def _load_needle_defaults(path: str) -> dict:
     with open(path, 'r') as file:
         data = yaml.safe_load(file) or {}
-    return data.get('/insertion_path_node', {}).get('ros__parameters', {})
+    return data.get('/**', {}).get('ros__parameters', {})
