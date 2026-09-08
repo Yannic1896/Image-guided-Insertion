@@ -1,4 +1,4 @@
-# RNM
+# Group Project: Robotics and Navigation in Medicine
 
 This repository contains the software, workspace configuration, data artifacts, and documentation developed for the RNM project. Its ROS 2 components support a robot-assisted workflow that combines camera calibration, point-cloud acquisition and mapping, target and needle-entry estimation, kinematics, and trajectory execution.
 
